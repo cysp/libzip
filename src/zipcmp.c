@@ -1,8 +1,8 @@
 /*
-  $NiH: zipcmp.c,v 1.7.2.1 2004/04/13 19:48:36 dillo Exp $
+  $NiH: zipcmp.c,v 1.20 2006/04/23 18:47:34 dillo Exp $
 
   zipcmp.c -- compare zip files
-  Copyright (C) 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <zlib.h>
 
 #include "config.h"
 #include "zip.h"
@@ -52,11 +53,14 @@ struct entry {
 
 
 
-char *prg;
+const char *prg;
 
-char *usage = "usage: %s [-hViqtv] zip1 zip2\n";
+#define PROGRAM	"zipmerge"
 
-char help_head[] = PACKAGE " by Dieter Baron and Thomas Klausner\n\n";
+char *usage = "usage: %s [-hiqtVv] zip1 zip2\n";
+
+char help_head[] =
+    PROGRAM " (" PACKAGE ") by Dieter Baron and Thomas Klausner\n\n";
 
 char help[] = "\n\
   -h       display this help message\n\
@@ -68,7 +72,7 @@ char help[] = "\n\
 \n\
 Report bugs to <nih@giga.or.at>.\n";
 
-char version_string[] = PACKAGE " " VERSION "\n\
+char version_string[] = PROGRAM " (" PACKAGE " " VERSION ")\n\
 Copyright (C) 2003 Dieter Baron and Thomas Klausner\n\
 " PACKAGE " comes with ABSOLUTELY NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of\n\
@@ -81,19 +85,19 @@ For more information about these matters, see the files named COPYING.\n";
 
 static int entry_cmp(const void *p1, const void *p2);
 static void entry_print(const void *p);
-static int compare_list(const char *name[], int verbose,
+static int compare_list(char * const name[], int verbose,
 		 const void *l[], const int n[], int size,
 		 int (*cmp)(const void *, const void *),
 		 void print(const void *));
-static int compare_zip(const char *zn[], int verbose);
-static int test_file(struct zip *z, int idx, off_t size, unsigned int crc);
+static int compare_zip(char * const zn[], int verbose);
+static int test_file(struct zip *za, int idx, off_t size, unsigned int crc);
 
 int ignore_case, test_files;
 
 
 
 int
-main(int argc, char *argv[])
+main(int argc, char * const argv[])
 {
     int verbose;
     int c;
@@ -145,9 +149,9 @@ main(int argc, char *argv[])
 
 
 static int
-compare_zip(const char *zn[], int verbose)
+compare_zip(char * const zn[], int verbose)
 {
-    struct zip *z;
+    struct zip *za;
     struct zip_stat st;
     struct entry *e[2];
     int n[2];
@@ -156,14 +160,14 @@ compare_zip(const char *zn[], int verbose)
     char errstr[1024];
 
     for (i=0; i<2; i++) {
-	if ((z=zip_open(zn[i], ZIP_CHECKCONS, &err)) == NULL) {
-	    zip_error_str(errstr, sizeof(errstr), err, errno);
+	if ((za=zip_open(zn[i], 0, &err)) == NULL) {
+	    zip_error_to_str(errstr, sizeof(errstr), err, errno);
 	    fprintf(stderr, "%s: cannot open zip archive `%s': %s\n",
 		    prg, zn[i], errstr);
 	    return -1;
 	}
 
-	n[i] = zip_get_num_files(z);
+	n[i] = zip_get_num_files(za);
 
 	if ((e[i]=malloc(sizeof(*e[i]) * n[i])) == NULL) {
 	    fprintf(stderr, "%s: malloc failure\n", prg);
@@ -171,21 +175,21 @@ compare_zip(const char *zn[], int verbose)
 	}
 
 	for (j=0; j<n[i]; j++) {
-	    zip_stat_index(z, j, 0, &st);
+	    zip_stat_index(za, j, 0, &st);
 	    e[i][j].name = strdup(st.name);
 	    e[i][j].size = st.size;
 	    e[i][j].crc = st.crc;
 	    if (test_files)
-		test_file(z, j, st.size, st.crc);
+		test_file(za, j, st.size, st.crc);
 	}
 
-	zip_close(z);
+	zip_close(za);
 
 	qsort(e[i], n[i], sizeof(e[i][0]), entry_cmp);
     }
 
     switch (compare_list(zn, verbose,
-			 e, n, sizeof(e[i][0]),
+			 (void *)e, n, sizeof(e[i][0]),
 			 entry_cmp, entry_print)) {
     case 0:
 	exit(0);
@@ -196,12 +200,14 @@ compare_zip(const char *zn[], int verbose)
     default:
 	exit(2);
     }
+
+    return 0;
 }
 
 
 
 static int
-compare_list(const char *name[2], int verbose,
+compare_list(char * const name[2], int verbose,
 	     const void *l[2], const int n[2], int size,
 	     int (*cmp)(const void *, const void *),
 	     void print(const void *))
@@ -209,13 +215,16 @@ compare_list(const char *name[2], int verbose,
     int i[2], j, c;
     int diff;
 
-#define INC(k)	(i[k]++, l[k]+=size)
-#define PRINT(k)	(((diff==0 && verbose)				    \
-			     ? printf("--- %s\n+++ %s\n", name[0], name[1]) \
-			     : 0),					    \
-			 (verbose ? (printf("%c ", (k)?'+':'-'),	    \
-				     print(l[k])) : 0),			    \
-			 diff = 1)
+#define INC(k)	(i[k]++, l[k]=((const char *)l[k])+size)
+#define PRINT(k)	do {						      \
+			    if (diff==0 && verbose)			      \
+			        printf("--- %s\n+++ %s\n", name[0], name[1]); \
+			    if (verbose) {				      \
+			        printf("%c ", (k)?'+':'-');		      \
+				print(l[k]);				      \
+			    }						      \
+			    diff = 1;					      \
+			} while (0)
 
     i[0] = i[1] = 0;
     diff = 0;
@@ -282,34 +291,35 @@ entry_print(const void *p)
 
 
 static int
-test_file(struct zip *z, int idx, off_t size, unsigned int crc)
+test_file(struct zip *za, int idx, off_t size, unsigned int crc)
 {
-    struct zip_file *f;
+    struct zip_file *zf;
     char buf[8192];
-    int n, nsize, ncrc;
+    int n, nsize;
+    unsigned int ncrc;
     
-    if ((f=zip_fopen_index(z, idx, 0)) == NULL) {
+    if ((zf=zip_fopen_index(za, idx, 0)) == NULL) {
 	fprintf(stderr, "%s: cannot open file %d in archive: %s\n",
-		prg, idx, zip_strerror(z));
+		prg, idx, zip_strerror(za));
 	return -1;
     }
 
     ncrc = crc32(0, NULL, 0);
     nsize = 0;
     
-    while ((n=zip_fread(f, buf, sizeof(buf))) > 0) {
+    while ((n=zip_fread(zf, buf, sizeof(buf))) > 0) {
 	nsize += n;
-	ncrc = crc32(ncrc, buf, n);
+	ncrc = crc32(ncrc, (const Bytef *)buf, n);
     }
 
     if (n < 0) {
 	fprintf(stderr, "%s: error reading file %d in archive: %s\n",
-		prg, idx, zip_file_strerror(f));
-	zip_fclose(f);
+		prg, idx, zip_file_strerror(zf));
+	zip_fclose(zf);
 	return -1;
     }
 
-    zip_fclose(f);
+    zip_fclose(zf);
 
     if (nsize != size) {
 	/* XXX: proper printf identifier */

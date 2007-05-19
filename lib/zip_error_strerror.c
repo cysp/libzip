@@ -1,5 +1,5 @@
 /*
-  $NiH: zip_error_strerror.c,v 1.1 2003/10/05 16:05:22 dillo Exp $
+  $NiH: zip_error_strerror.c,v 1.4 2006/02/21 09:41:00 dillo Exp $
 
   zip_error_sterror.c -- get string representation of struct zip_error
   Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
@@ -66,7 +66,7 @@ _zip_error_strerror(struct zip_error *err)
 	    ss = strerror(err->sys_err);
 	    break;
 
-	case ZIP_ET_ZIP:
+	case ZIP_ET_ZLIB:
 	    ss = zError(err->sys_err);
 	    break;
 
@@ -78,8 +78,9 @@ _zip_error_strerror(struct zip_error *err)
     if (ss == NULL)
 	return zs;
     else {
-	if ((s=malloc(strlen(ss) + (zs ? strlen(zs)+2 : 0) + 1)) == NULL)
-	    return _zip_err_str[ZERR_MEMORY];
+	if ((s=(char *)malloc(strlen(ss)
+			      + (zs ? strlen(zs)+2 : 0) + 1)) == NULL)
+	    return _zip_err_str[ZIP_ER_MEMORY];
 	
 	sprintf(s, "%s%s%s",
 		(zs ? zs : ""),
@@ -87,6 +88,6 @@ _zip_error_strerror(struct zip_error *err)
 		ss);
 	err->str = s;
 
-	return ss;
+	return s;
     }
 }

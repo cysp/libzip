@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_unchange.c,v 1.11.4.1 2004/03/20 09:54:09 dillo Exp $
+  $NiH: zip_unchange.c,v 1.18 2006/04/09 19:05:47 wiz Exp $
 
   zip_unchange.c -- undo changes to file in zip archive
-  Copyright (C) 1999 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2004, 2006 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -42,21 +42,43 @@
 
 
 int
-zip_unchange(struct zip *zf, int idx)
+zip_unchange(struct zip *za, int idx)
 {
-    int ret;
+    return _zip_unchange(za, idx, 0);
+}
+
+
+
+int
+_zip_unchange(struct zip *za, int idx, int allow_duplicates)
+{
+    int i;
     
-    if (!zf || idx < 0 || idx >= zf->nentry) {
-	_zip_error_set(&zf->error, ZERR_INVAL, 0);
+    if (idx < 0 || idx >= za->nentry) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
 	return -1;
     }
 
-    if (zf->entry[idx].ch_filename) {
-	free(zf->entry[idx].ch_filename);
-	zf->entry[idx].ch_filename = NULL;
+    if (za->entry[idx].ch_filename) {
+	if (!allow_duplicates) {
+	    i = _zip_name_locate(za,
+			 _zip_get_name(za, idx, ZIP_FL_UNCHANGED, NULL),
+				 0, NULL);
+	    if (i != -1 && i != idx) {
+		_zip_error_set(&za->error, ZIP_ER_EXISTS, 0);
+		return -1;
+	    }
+	}
+
+	free(za->entry[idx].ch_filename);
+	za->entry[idx].ch_filename = NULL;
     }
 
-    ret = _zip_unchange_data(zf->entry+idx);
-        
-    return ret;
+    free(za->entry[idx].ch_comment);
+    za->entry[idx].ch_comment = NULL;
+    za->entry[idx].ch_comment_len = -1;
+
+    _zip_unchange_data(za->entry+idx);
+
+    return 0;
 }

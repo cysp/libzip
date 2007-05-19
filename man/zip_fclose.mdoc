@@ -1,7 +1,7 @@
-.\" $NiH: zip_fclose.mdoc,v 1.2 2003/10/03 12:04:08 dillo Exp $
+.\" $NiH: zip_fclose.mdoc,v 1.8 2005/06/09 21:13:12 wiz Exp $
 .\"
 .\" zip_fclose.mdoc -- close file in zip archive
-.\" Copyright (C) 2003 Dieter Baron and Thomas Klausner
+.\" Copyright (C) 2003, 2005 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <nih@giga.or.at>
@@ -51,11 +51,13 @@ function closes
 and frees the memory allocated for it.
 .Sh RETURN VALUES
 Upon successful completion 0 is returned.
-Otherwise, \-1 is returned and the global variable
-.Va zip_err
-is set to indicate the error.
-.\" .Sh ERRORS
-.\" XXX: the code needs checking.
+Otherwise, the error code is returned.
 .Sh SEE ALSO
+.Xr libzip 3 ,
 .Xr zip_fopen 3 ,
 .Xr zip_fread 3
+.Sh AUTHORS
+.An -nosplit
+.An Dieter Baron Aq dillo@giga.or.at
+and
+.An Thomas Klausner Aq tk@giga.or.at

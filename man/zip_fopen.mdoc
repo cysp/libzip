@@ -1,7 +1,7 @@
-.\" $NiH: zip_fopen.mdoc,v 1.5 2003/10/06 16:37:07 dillo Exp $
+.\" $NiH: zip_fopen.mdoc,v 1.13 2005/06/09 21:13:12 wiz Exp $
 .\"
-.\" zip_fopen.mdoc -- open file in zip archvie for reading
-.\" Copyright (C) 2003, 2004 Dieter Baron and Thomas Klausner
+.\" zip_fopen.mdoc -- open file in zip archive for reading
+.\" Copyright (C) 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <nih@giga.or.at>
@@ -63,7 +63,8 @@ Also, the following values may be
 to it.
 .Bl -tag -offset indent -width ZIP_FL_COMPRESSED
 .It Dv ZIP_FL_COMPRESSED
-Read the compressed data.  Otherwise the data is uncompressed by 
+Read the compressed data.
+Otherwise the data is uncompressed by
 .Fn zip_fread .
 .It Dv ZIP_FL_UNCHANGED
 Read the original data from the zip archive, ignoring any changes made
@@ -85,17 +86,17 @@ is returned and the error code in
 is set to indicate the error.
 .Sh ERRORS
 .Bl -tag -width Er
-.It Bq Er ZERR_CHANGED
+.It Bq Er ZIP_ER_CHANGED
 The file data has been changed.
-.It Bq Er ZERR_COMPNOTSUPP
+.It Bq Er ZIP_ER_COMPNOTSUPP
 The compression method used is not supported.
-.It Bq Er ZERR_MEMORY
+.It Bq Er ZIP_ER_MEMORY
 Required memory could not be allocated.
-.It Bq Er ZERR_READ
+.It Bq Er ZIP_ER_READ
 A file read error occurred.
-.It Bq Er ZERR_SEEK
+.It Bq Er ZIP_ER_SEEK
 A file seek error occurred.
-.It Bq Er ZERR_ZLIB
+.It Bq Er ZIP_ER_ZLIB
 Initializing the zlib stream failed.
 .El
 .Pp
@@ -109,11 +110,17 @@ for any of the errors specified for the routine
 The function
 .Fn zip_fopen_index
 may also fail with
-.Er ZERR_INVAL
+.Er ZIP_ER_INVAL
 if
 .Ar index
 is invalid.
 .Sh SEE ALSO
+.Xr libzip 3 ,
 .Xr zip_fclose 3 ,
 .Xr zip_fread 3 ,
 .Xr zip_name_locate 3
+.Sh AUTHORS
+.An -nosplit
+.An Dieter Baron Aq dillo@giga.or.at
+and
+.An Thomas Klausner Aq tk@giga.or.at

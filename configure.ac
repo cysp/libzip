@@ -1,18 +1,13 @@
 AC_PREREQ(2.57)
-AC_INIT([libzip],[0.5a],[nih@giga.or.at])
+AC_INIT([libzip],[0.7.1b],[libzip@nih.at])
 AC_CONFIG_SRCDIR([lib/zip_add.c])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
 
 dnl AC_CANONICAL_HOST
 
-# We want these before the checks, so the checks can modify their values.
-dnl test -z "$CFLAGS" && CFLAGS='-Wall -g' auto_cflags=1
-
-
 AC_PROG_CC
-AC_PROG_RANLIB
-
+AM_PROG_CC_C_O
 
 AC_ARG_WITH(zlib,
     [  --with-zlib=PREFIX  specify prefix for ZLIB library],,
@@ -42,40 +37,21 @@ then
     AC_MSG_ERROR([ZLIB version too old, please install at least v1.1.2])
 fi
 
-dnl case $host_os
-dnl in
-dnl 	*bsd*) MANFMT=mdoc;;
-dnl 	*) MANFMT=man;;
-dnl esac
-
 AC_EXEEXT
 
-dnl AM_DISABLE_STATIC
 AM_PROG_LIBTOOL
+
+AC_CHECK_FUNCS([fseeko ftello MoveFileEx])
+AC_CHECK_FUNCS([mkstemp], [], [AC_LIBOBJ(mkstemp)])
+
+AC_CHECK_HEADERS([unistd.h])
 
 case $host_os
 in
     *bsd*) MANFMT=mdoc;;
     *) MANFMT=man;;
 esac
-
-AC_CONFIG_LINKS([man/zipcmp.1:man/zipcmp.${MANFMT}
-		 man/zip_close.3:man/zip_close.${MANFMT}
-		 man/zip_delete.3:man/zip_delete.${MANFMT}
-		 man/zip_error_str.3:man/zip_error_str.${MANFMT}
-		 man/zip_fclose.3:man/zip_fclose.${MANFMT}
-		 man/zip_file_strerror.3:man/zip_file_strerror.${MANFMT}
-		 man/zip_fopen.3:man/zip_fopen.${MANFMT}
-		 man/zip_fread.3:man/zip_fread.${MANFMT}
-		 man/zip_get_name.3:man/zip_get_name.${MANFMT}
-		 man/zip_get_num_files.3:man/zip_get_num_files.${MANFMT}
-		 man/zip_name_locate.3:man/zip_name_locate.${MANFMT}
-		 man/zip_open.3:man/zip_open.${MANFMT}
-		 man/zip_rename.3:man/zip_rename.${MANFMT}
-		 man/zip_stat.3:man/zip_stat.${MANFMT}
-		 man/zip_strerror.3:man/zip_strerror.${MANFMT}
-		 man/zip_unchange.3:man/zip_unchange.${MANFMT}
-		 man/zip_unchange_all.3:man/zip_unchange_all.${MANFMT}])
+AC_SUBST([MANFMT])
 
 AC_CONFIG_FILES([Makefile
 		 libzip.pc

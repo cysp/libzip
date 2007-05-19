@@ -1,7 +1,7 @@
-.\" $NiH: zipcmp.mdoc,v 1.6 2003/10/03 23:54:30 dillo Exp $
+.\" $NiH: zipcmp.mdoc,v 1.11 2005/06/09 21:13:13 wiz Exp $
 .\"
 .\" zipcmp.mdoc -- compare zip archives
-.\" Copyright (C) 2003 Dieter Baron and Thomas Klausner
+.\" Copyright (C) 2003, 2005 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <nih@giga.or.at>
@@ -52,7 +52,7 @@ uncompressed sizes, and CRCs.
 File order and compressed size differences are ignored.
 .Pp
 Supported options:
-.Bl -tag -width XXX
+.Bl -tag -width MMM
 .It Fl h
 Display a short help message and exit.
 .It Fl i
@@ -72,5 +72,11 @@ Display version information and exit.
 .Nm
 exits 0 if the two zip archives contain the same files, 1 if they differ,
 and \*[Gt]1 if an error occurred.
-.\".Sh SEE ALSO
-.\" XXX
+.Sh SEE ALSO
+.Xr zipmerge 1 ,
+.Xr libzip 3
+.Sh AUTHORS
+.An -nosplit
+.An Dieter Baron Aq dillo@giga.or.at
+and
+.An Thomas Klausner Aq tk@giga.or.at

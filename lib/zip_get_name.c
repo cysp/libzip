@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_get_name.c,v 1.6 2003/10/06 16:37:41 dillo Exp $
+  $NiH: zip_get_name.c,v 1.12 2004/11/30 23:02:46 wiz Exp $
 
   zip_get_name.c -- get filename for a file in zip file
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -41,15 +41,34 @@
 
 
 const char *
-zip_get_name(struct zip *zf, int idx)
+zip_get_name(struct zip *za, int idx, int flags)
 {
-    if (idx < 0 || idx >= zf->nentry) {
-	_zip_error_set(&zf->error, ZERR_INVAL, 0);
+    return _zip_get_name(za, idx, flags, &za->error);
+}
+
+
+
+const char *
+_zip_get_name(struct zip *za, int idx, int flags, struct zip_error *error)
+{
+    if (idx < 0 || idx >= za->nentry) {
+	_zip_error_set(error, ZIP_ER_INVAL, 0);
 	return NULL;
     }
 
-    if (zf->entry[idx].ch_filename)
-	return zf->entry[idx].ch_filename;
+    if ((flags & ZIP_FL_UNCHANGED) == 0) {
+	if (za->entry[idx].state == ZIP_ST_DELETED) {
+	    _zip_error_set(error, ZIP_ER_DELETED, 0);
+	    return NULL;
+	}
+	if (za->entry[idx].ch_filename)
+	    return za->entry[idx].ch_filename;
+    }
 
-    return zf->cdir->entry[idx].filename;
+    if (za->cdir == NULL || idx >= za->cdir->nentry) {
+	_zip_error_set(error, ZIP_ER_INVAL, 0);
+	return NULL;
+    }
+    
+    return za->cdir->entry[idx].filename;
 }

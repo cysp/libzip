@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_dirent.c,v 1.1.2.9 2004/04/10 23:51:27 dillo Exp $
+  $NiH: zip_dirent.c,v 1.10 2007/03/03 13:48:08 wiz Exp $
 
   zip_dirent.c -- read directory entry (local or central), clean dirent
-  Copyright (C) 1999, 2003, 2004 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -39,7 +39,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -47,9 +46,9 @@
 #include "zipint.h"
 
 static time_t _zip_d2u_time(int, int);
-static char *_zip_readfpstr(FILE *, int, int, struct zip_error *);
+static char *_zip_readfpstr(FILE *, unsigned int, int, struct zip_error *);
 static char *_zip_readstr(unsigned char **, int, int, struct zip_error *);
-static void _zip_u2d_time(time_t, int *, int *);
+static void _zip_u2d_time(time_t, unsigned short *, unsigned short *);
 static void _zip_write2(unsigned short, FILE *);
 static void _zip_write4(unsigned int, FILE *);
 
@@ -77,13 +76,14 @@ _zip_cdir_new(int nentry, struct zip_error *error)
 {
     struct zip_cdir *cd;
     
-    if ((cd=malloc(sizeof(*cd))) == NULL) {
-	_zip_error_set(error, ZERR_MEMORY, 0);
+    if ((cd=(struct zip_cdir *)malloc(sizeof(*cd))) == NULL) {
+	_zip_error_set(error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
 
-    if ((cd->entry=malloc(sizeof(*(cd->entry))*nentry)) == NULL) {
-	_zip_error_set(error, ZERR_MEMORY, 0);
+    if ((cd->entry=(struct zip_dirent *)malloc(sizeof(*(cd->entry))*nentry))
+	== NULL) {
+	_zip_error_set(error, ZIP_ER_MEMORY, 0);
 	free(cd);
 	return NULL;
     }
@@ -105,27 +105,27 @@ _zip_cdir_write(struct zip_cdir *cd, FILE *fp, struct zip_error *error)
 {
     int i;
 
-    cd->offset = ftell(fp);
+    cd->offset = ftello(fp);
 
     for (i=0; i<cd->nentry; i++) {
 	if (_zip_dirent_write(cd->entry+i, fp, 0, error) != 0)
 	    return -1;
     }
 
-    cd->size = ftell(fp) - cd->offset;
+    cd->size = ftello(fp) - cd->offset;
     
     /* clearerr(fp); */
     fwrite(EOCD_MAGIC, 1, 4, fp);
     _zip_write4(0, fp);
-    _zip_write2(cd->nentry, fp);
-    _zip_write2(cd->nentry, fp);
+    _zip_write2((unsigned short)cd->nentry, fp);
+    _zip_write2((unsigned short)cd->nentry, fp);
     _zip_write4(cd->size, fp);
     _zip_write4(cd->offset, fp);
     _zip_write2(cd->comment_len, fp);
     fwrite(cd->comment, 1, cd->comment_len, fp);
 
     if (ferror(fp)) {
-	_zip_error_set(error, ZERR_WRITE, errno);
+	_zip_error_set(error, ZIP_ER_WRITE, errno);
 	return -1;
     }
 
@@ -150,8 +150,8 @@ _zip_dirent_finalize(struct zip_dirent *zde)
 void
 _zip_dirent_init(struct zip_dirent *de)
 {
-    de->version_madeby = 0; /* XXX */
-    de->version_needed = 0; /* XXX */
+    de->version_madeby = 0;
+    de->version_needed = 20; /* 2.0 */
     de->bitflags = 0;
     de->comp_method = 0;
     de->last_mod = 0;
@@ -188,13 +188,13 @@ _zip_dirent_init(struct zip_dirent *de)
 
 int
 _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
-		 unsigned char **bufp, int left, int localp,
+		 unsigned char **bufp, unsigned int left, int localp,
 		 struct zip_error *error)
 {
     unsigned char buf[CDENTRYSIZE];
     unsigned char *cur;
     unsigned short dostime, dosdate;
-    int size;
+    unsigned int size;
 
     if (localp)
 	size = LENTRYSIZE;
@@ -205,14 +205,14 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
 	/* use data from buffer */
 	cur = *bufp;
 	if (left < size) {
-	    _zip_error_set(error, ZERR_NOZIP, 0);
+	    _zip_error_set(error, ZIP_ER_NOZIP, 0);
 	    return -1;
 	}
     }
     else {
 	/* read entry from disk */
 	if ((fread(buf, 1, size, fp)<size)) {
-	    _zip_error_set(error, ZERR_READ, errno);
+	    _zip_error_set(error, ZIP_ER_READ, errno);
 	    return -1;
 	}
 	left = size;
@@ -220,7 +220,7 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     }
 
     if (memcmp(cur, (localp ? LOCAL_MAGIC : CENTRAL_MAGIC), 4) != 0) {
-	/* XXX: zip_err = ZERR_NOZIP; */
+	_zip_error_set(error, ZIP_ER_NOZIP, 0);
 	return -1;
     }
     cur += 4;
@@ -269,7 +269,7 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     if (bufp) {
 	if (left < CDENTRYSIZE + (zde->filename_len+zde->extrafield_len
 				  +zde->comment_len)) {
-	    _zip_error_set(error, ZERR_NOZIP, 0);
+	    _zip_error_set(error, ZIP_ER_NOZIP, 0);
 	    return -1;
 	}
 
@@ -335,7 +335,7 @@ int
 _zip_dirent_write(struct zip_dirent *zde, FILE *fp, int localp,
 		  struct zip_error *error)
 {
-    int dostime, dosdate;
+    unsigned short dostime, dosdate;
 
     fwrite(localp ? LOCAL_MAGIC : CENTRAL_MAGIC, 1, 4, fp);
 
@@ -376,7 +376,7 @@ _zip_dirent_write(struct zip_dirent *zde, FILE *fp, int localp,
     }
 
     if (ferror(fp)) {
-	_zip_error_set(error, ZERR_WRITE, errno);
+	_zip_error_set(error, ZIP_ER_WRITE, errno);
 	return -1;
     }
 
@@ -393,6 +393,8 @@ _zip_d2u_time(int dtime, int ddate)
 
     now = time(NULL);
     tm = localtime(&now);
+    /* let mktime decide if DST is in effect */
+    tm->tm_isdst = -1;
     
     tm->tm_year = ((ddate>>9)&127) + 1980 - 1900;
     tm->tm_mon = ((ddate>>5)&15) - 1;
@@ -434,29 +436,28 @@ _zip_read4(unsigned char **a)
 
 
 static char *
-_zip_readfpstr(FILE *fp, int len, int nulp, struct zip_error *error)
+_zip_readfpstr(FILE *fp, unsigned int len, int nulp, struct zip_error *error)
 {
     char *r, *o;
 
-    r = (char *)malloc(nulp?len+1:len);
+    r = (char *)malloc(nulp ? len+1 : len);
     if (!r) {
-	_zip_error_set(error, ZERR_MEMORY, 0);
+	_zip_error_set(error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
 
     if (fread(r, 1, len, fp)<len) {
 	free(r);
-	_zip_error_set(error, ZERR_READ, errno);
+	_zip_error_set(error, ZIP_ER_READ, errno);
 	return NULL;
     }
 
     if (nulp) {
-	/* elephant */
-	/* XXX: what does this do? */
+	/* replace any in-string NUL characters with spaces */
 	r[len] = 0;
-	o = r-1;
-	while (((o=memchr(o+1, 0, r+len-(o+1))) < r+len) && o)
-	       *o = ' ';
+	for (o=r; o<r+len; o++)
+	    if (*o == '\0')
+		*o = ' ';
     }
     
     return r;
@@ -469,9 +470,9 @@ _zip_readstr(unsigned char **buf, int len, int nulp, struct zip_error *error)
 {
     char *r, *o;
 
-    r = (char *)malloc(nulp?len+1:len);
+    r = (char *)malloc(nulp ? len+1 : len);
     if (!r) {
-	_zip_error_set(error, ZERR_MEMORY, 0);
+	_zip_error_set(error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
     
@@ -479,12 +480,11 @@ _zip_readstr(unsigned char **buf, int len, int nulp, struct zip_error *error)
     *buf += len;
 
     if (nulp) {
-	/* elephant */
-	/* XXX: what does this do? */
+	/* replace any in-string NUL characters with spaces */
 	r[len] = 0;
-	o = r-1;
-	while (((o=memchr(o+1, 0, r+len-(o+1))) < r+len) && o)
-	       *o = ' ';
+	for (o=r; o<r+len; o++)
+	    if (*o == '\0')
+		*o = ' ';
     }
 
     return r;
@@ -517,7 +517,7 @@ _zip_write4(unsigned int i, FILE *fp)
 
 
 static void
-_zip_u2d_time(time_t time, int *dtime, int *ddate)
+_zip_u2d_time(time_t time, unsigned short *dtime, unsigned short *ddate)
 {
     struct tm *tm;
 

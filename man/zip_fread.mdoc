@@ -1,7 +1,7 @@
-.\" $NiH: zip_fread.mdoc,v 1.2 2003/10/03 12:04:08 dillo Exp $
+.\" $NiH: zip_fread.mdoc,v 1.8 2005/06/09 21:13:12 wiz Exp $
 .\"
 .\" zip_fread.mdoc -- read from file
-.\" Copyright (C) 2003 Dieter Baron and Thomas Klausner
+.\" Copyright (C) 2003, 2005 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <nih@giga.or.at>
@@ -42,8 +42,7 @@ libzip (-lzip)
 .Sh SYNOPSIS
 .In zip.h
 .Ft int
-.\" XXX: buf should be void *
-.Fn zip_fread "struct zip_file *file" "char *buf" "int nbytes"
+.Fn zip_fread "struct zip_file *file" "void *buf" "int nbytes"
 .Sh DESCRIPTION
 The
 .Fn zip_fread
@@ -56,8 +55,12 @@ into
 .Sh RETURN VALUES
 If successful, the number of bytes actually read is returned.
 Otherwise, \-1 is returned.
-.\" .Sh ERRORS
-.\" XXX: the code needs checking.
 .Sh SEE ALSO
+.Xr libzip 3 ,
 .Xr zip_fclose 3 ,
 .Xr zip_fopen 3
+.Sh AUTHORS
+.An -nosplit
+.An Dieter Baron Aq dillo@giga.or.at
+and
+.An Thomas Klausner Aq tk@giga.or.at

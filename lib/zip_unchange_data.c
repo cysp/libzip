@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_unchange_data.c,v 1.9.4.1 2004/03/20 09:54:09 dillo Exp $
+  $NiH: zip_unchange_data.c,v 1.14 2004/11/30 23:02:47 wiz Exp $
 
   zip_unchange_data.c -- undo helper function
-  Copyright (C) 1999 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2004 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -36,25 +36,18 @@
 
 
 #include <stdlib.h>
-#include "zip.h"
+
 #include "zipint.h"
 
-int
+void
 _zip_unchange_data(struct zip_entry *ze)
 {
-    int ret;
-
-    ret = 0;
-    
-    if (ze->ch_func) {
-	ret = ze->ch_func(ze->ch_data, NULL, 0, ZIP_CMD_CLOSE);
-	ze->ch_func = NULL;
+    if (ze->source) {
+	(void)ze->source->f(ze->source->ud, NULL, 0, ZIP_SOURCE_FREE);
+	free(ze->source);
+	ze->source = NULL;
     }
     
-    ze->ch_flags = 0;
-
     ze->state = ze->ch_filename ? ZIP_ST_RENAMED : ZIP_ST_UNCHANGED;
-
-    return ret;
 }
 

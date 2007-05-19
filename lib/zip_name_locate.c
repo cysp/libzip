@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_name_locate.c,v 1.9.4.2 2004/04/14 09:21:34 dillo Exp $
+  $NiH: zip_name_locate.c,v 1.18 2005/01/11 18:52:42 wiz Exp $
 
   zip_name_locate.c -- get index by name
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -45,31 +45,47 @@
 int
 zip_name_locate(struct zip *za, const char *fname, int flags)
 {
-    int (*cmp)();
+    return _zip_name_locate(za, fname, flags, &za->error);
+}
+
+
+
+int
+_zip_name_locate(struct zip *za, const char *fname, int flags,
+		 struct zip_error *error)
+{
+    int (*cmp)(const char *, const char *);
     const char *fn, *p;
-    int i;
+    int i, n;
 
     if (fname == NULL) {
-	_zip_error_set(&za->error, ZERR_INVAL, 0);
+	_zip_error_set(error, ZIP_ER_INVAL, 0);
 	return -1;
     }
     
-    cmp = (flags & ZIP_FL_NOCASE) ? strcmp : strcasecmp;
+    cmp = (flags & ZIP_FL_NOCASE) ? strcasecmp : strcmp;
 
-    /* XXX: honour ZIP_FL_UNCHANGED */
+    n = (flags & ZIP_FL_UNCHANGED) ? za->cdir->nentry : za->nentry;
+    for (i=0; i<n; i++) {
+	if (flags & ZIP_FL_UNCHANGED)
+	    fn = za->cdir->entry[i].filename;
+	else
+	    fn = _zip_get_name(za, i, flags, error);
 
-    for (i=0; i<za->nentry; i++) {
-	fn = zip_get_name(za, i);
+	/* newly added (partially filled) entry */
+	if (fn == NULL)
+	    continue;
+	
 	if (flags & ZIP_FL_NODIR) {
-	    /* XXX: handle '\' */
-	    if ((p=strrchr(fn, '/')) != NULL)
-		fn = p;
+	    p = strrchr(fn, '/');
+	    if (p)
+		fn = p+1;
 	}
 
 	if (cmp(fname, fn) == 0)
 	    return i;
     }
 
-    _zip_error_set(&za->error, ZERR_NOENT, 0);
+    _zip_error_set(error, ZIP_ER_NOENT, 0);
     return -1;
 }

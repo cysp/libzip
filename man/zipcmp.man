@@ -1,9 +1,9 @@
 .\" Converted with mdoc2man 0.2
-.\" from NiH: zipcmp.mdoc,v 1.7 2003/10/03 23:55:12 dillo Exp 
-.\" $NiH: zipcmp.mdoc,v 1.7 2003/10/03 23:55:12 dillo Exp $
+.\" from NiH: zipcmp.mdoc,v 1.12 2005/06/17 12:59:06 wiz Exp 
+.\" $NiH: zipcmp.mdoc,v 1.12 2005/06/17 12:59:06 wiz Exp $
 .\"
 .\" zipcmp.mdoc \-- compare zip archives
-.\" Copyright (C) 2003 Dieter Baron and Thomas Klausner
+.\" Copyright (C) 2003, 2005 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <nih@giga.or.at>
@@ -76,5 +76,11 @@ Display version information and exit.
 .B zipcmp
 exits 0 if the two zip archives contain the same files, 1 if they differ,
 and \*[Gt]1 if an error occurred.
-.\".SH "SEE ALSO"
-.\" XXX
+.SH "SEE ALSO"
+zipmerge(1),
+libzip(3)
+.SH "AUTHORS"
+
+Dieter Baron <dillo@giga.or.at>
+and
+Thomas Klausner <tk@giga.or.at>

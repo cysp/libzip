@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_add.c,v 1.9 2003/10/02 14:13:28 dillo Exp $
+  $NiH: zip_add.c,v 1.13 2004/11/17 21:55:09 wiz Exp $
 
   zip_add.c -- add file via callback function
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -41,13 +41,12 @@
 
 
 int
-zip_add(struct zip *zf, const char *name,
-	zip_read_func fn, void *state, int flags)
+zip_add(struct zip *za, const char *name, struct zip_source *source)
 {
-    if (name == NULL) {
-	_zip_error_set(&zf->error, ZERR_INVAL, 0);
+    if (name == NULL || source == NULL) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
 	return -1;
     }
 	
-    return _zip_replace(zf, -1, name, fn, state, flags);
+    return _zip_replace(za, -1, name, source);
 }

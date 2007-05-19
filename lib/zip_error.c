@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_error.c,v 1.3 2003/10/06 16:37:40 dillo Exp $
+  $NiH: zip_error.c,v 1.7 2005/06/09 19:57:09 dillo Exp $
 
   zip_error.c -- struct zip_error helper functions
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2006 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -43,6 +43,15 @@
 
 
 void
+_zip_error_clear(struct zip_error *err)
+{
+    err->zip_err = ZIP_ER_OK;
+    err->sys_err = 0;
+}
+
+
+
+void
 _zip_error_copy(struct zip_error *dst, struct zip_error *src)
 {
     dst->zip_err = src->zip_err;
@@ -65,9 +74,12 @@ _zip_error_get(struct zip_error *err, int *zep, int *sep)
 {
     if (zep)
 	*zep = err->zip_err;
-    /* XXX: only if valid? */
-    if (sep)
-	*sep = err->sys_err;
+    if (sep) {
+	if (zip_error_get_sys_type(err->zip_err) != ZIP_ET_NONE)
+	    *sep = err->sys_err;
+	else
+	    *sep = 0;
+    }
 }
 
 
@@ -75,7 +87,7 @@ _zip_error_get(struct zip_error *err, int *zep, int *sep)
 void
 _zip_error_init(struct zip_error *err)
 {
-    err->zip_err = 0;
+    err->zip_err = ZIP_ER_OK;
     err->sys_err = 0;
     err->str = NULL;
 }

@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_set_name.c,v 1.10 2003/10/06 16:37:41 dillo Exp $
+  $NiH: zip_set_name.c,v 1.15 2004/11/30 22:19:38 wiz Exp $
 
   zip_set_name.c -- rename helper function
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -43,24 +43,35 @@
 
 
 int
-_zip_set_name(struct zip *zf, int idx, const char *name)
+_zip_set_name(struct zip *za, int idx, const char *name)
 {
     char *s;
+    int i;
     
-    if (idx < 0 || idx >= zf->nentry) {
-	_zip_error_set(&zf->error, ZERR_INVAL, 0);
+    if (idx < 0 || idx >= za->nentry || name == NULL) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
 	return -1;
     }
 
-    if (name != NULL) {
-	if ((s=strdup(name)) == NULL) {
-	    _zip_error_set(&zf->error, ZERR_MEMORY, 0);
-	    return -1;
-	}
-	
-	free(zf->entry[idx].ch_filename);
-	zf->entry[idx].ch_filename = s;
+    if ((i=_zip_name_locate(za, name, 0, NULL)) != -1 && i != idx) {
+	_zip_error_set(&za->error, ZIP_ER_EXISTS, 0);
+	return -1;
     }
+
+    /* no effective name change */
+    if (i == idx)
+	return 0;
+    
+    if ((s=strdup(name)) == NULL) {
+	_zip_error_set(&za->error, ZIP_ER_MEMORY, 0);
+	return -1;
+    }
+    
+    if (za->entry[idx].state == ZIP_ST_UNCHANGED) 
+	za->entry[idx].state = ZIP_ST_RENAMED;
+
+    free(za->entry[idx].ch_filename);
+    za->entry[idx].ch_filename = s;
 
     return 0;
 }

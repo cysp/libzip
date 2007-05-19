@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_free.c,v 1.8.4.1 2004/04/06 20:30:04 dillo Exp $
+  $NiH: zip_free.c,v 1.16 2005/01/11 17:40:56 dillo Exp $
 
   zip_free.c -- free struct zip
-  Copyright (C) 1999 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -46,36 +46,38 @@
    corresponding file. */
 
 void
-_zip_free(struct zip *zf)
+_zip_free(struct zip *za)
 {
     int i;
 
-    if (zf == NULL)
+    if (za == NULL)
 	return;
 
-    if (zf->zn)
-	free(zf->zn);
+    if (za->zn)
+	free(za->zn);
 
-    if (zf->zp)
-	fclose(zf->zp);
+    if (za->zp)
+	fclose(za->zp);
 
-    _zip_cdir_free(zf->cdir);
+    _zip_cdir_free(za->cdir);
 
-    if (zf->entry) {
-	for (i=0; i<zf->nentry; i++) {
-	    _zip_free_entry(zf->entry+i);
+    if (za->entry) {
+	for (i=0; i<za->nentry; i++) {
+	    _zip_entry_free(za->entry+i);
 	}
-	free (zf->entry);
+	free(za->entry);
     }
 
-    for (i=0; i<zf->nfile; i++) {
-	zf->file[i]->flags = ZERR_ZIPCLOSED;
-	zf->file[i]->zf = NULL;
+    for (i=0; i<za->nfile; i++) {
+	if (za->file[i]->error.zip_err == ZIP_ER_OK) {
+	    _zip_error_set(&za->file[i]->error, ZIP_ER_ZIPCLOSED, 0);
+	    za->file[i]->za = NULL;
+	}
     }
 
-    free(zf->file);
+    free(za->file);
     
-    free(zf);
+    free(za);
 
     return;
 }

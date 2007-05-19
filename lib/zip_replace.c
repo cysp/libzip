@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_replace.c,v 1.11.4.2 2004/04/06 20:30:06 dillo Exp $
+  $NiH: zip_replace.c,v 1.19 2004/11/30 22:19:38 wiz Exp $
 
   zip_replace.c -- replace file via callback function
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2003, 2004, 2006 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -41,41 +41,41 @@
 
 
 int
-zip_replace(struct zip *zf, int idx, zip_read_func fn, void *state, int flags)
+zip_replace(struct zip *za, int idx, struct zip_source *source)
 {
-    if (idx < 0 || idx >= zf->nentry) {
-	_zip_error_set(&zf->error, ZERR_INVAL, 0);
+    if (idx < 0 || idx >= za->nentry || source == NULL) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
 	return -1;
     }
 
-    return _zip_replace(zf, idx, NULL, fn, state, flags);
+    if (_zip_replace(za, idx, NULL, source) == -1)
+	return -1;
+
+    return 0;
 }
 
 
 
 
 int
-_zip_replace(struct zip *zf, int idx, const char *name,
-	     zip_read_func fn, void *state, int flags)
+_zip_replace(struct zip *za, int idx, const char *name,
+	     struct zip_source *source)
 {
     if (idx == -1) {
-	if (_zip_new_entry(zf) == NULL)
+	if (_zip_entry_new(za) == NULL)
 	    return -1;
 
-	idx = zf->nentry - 1;
+	idx = za->nentry - 1;
     }
     
-    if (_zip_unchange_data(zf->entry+idx) != 0)
-	return -1;
+    _zip_unchange_data(za->entry+idx);
 
-    if (_zip_set_name(zf, idx, name) != 0)
+    if (name && _zip_set_name(za, idx, name) != 0)
 	return -1;
     
-    zf->entry[idx].state = ((zf->cdir == NULL || idx >= zf->cdir->nentry)
+    za->entry[idx].state = ((za->cdir == NULL || idx >= za->cdir->nentry)
 			    ? ZIP_ST_ADDED : ZIP_ST_REPLACED);
-    zf->entry[idx].ch_func = fn;
-    zf->entry[idx].ch_data = state;
-    zf->entry[idx].ch_flags = flags;
+    za->entry[idx].source = source;
 
-    return 0;
+    return idx;
 }

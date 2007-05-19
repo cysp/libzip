@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_fopen.c,v 1.8 2003/10/06 16:37:40 dillo Exp $
+  $NiH: zip_fopen.c,v 1.11 2005/01/11 18:38:16 wiz Exp $
 
-  zip_fopen.c -- open file in zip archvie for reading
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  zip_fopen.c -- open file in zip archive for reading
+  Copyright (C) 1999, 2003, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>

@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_fclose.c,v 1.8 2003/10/03 11:53:28 dillo Exp $
+  $NiH: zip_fclose.c,v 1.13 2005/01/11 19:52:24 wiz Exp $
 
   zip_fclose.c -- close file in zip archive
-  Copyright (C) 1999 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -43,29 +43,32 @@
 
 
 int
-zip_fclose(struct zip_file *zff)
+zip_fclose(struct zip_file *zf)
 {
     int i, ret;
     
-    if (zff->zstr)
-	inflateEnd(zff->zstr);
-    free(zff->buffer);
-    free(zff->zstr);
+    if (zf->zstr)
+	inflateEnd(zf->zstr);
+    free(zf->buffer);
+    free(zf->zstr);
 
-    for (i=0; i<zff->zf->nfile; i++) {
-	if (zff->zf->file[i] == zff) {
-	    zff->zf->file[i] = zff->zf->file[zff->zf->nfile-1];
-	    zff->zf->nfile--;
+    for (i=0; i<zf->za->nfile; i++) {
+	if (zf->za->file[i] == zf) {
+	    zf->za->file[i] = zf->za->file[zf->za->nfile-1];
+	    zf->za->nfile--;
 	    break;
 	}
     }
 
-    /* if EOF, compare CRC */
-    if (zff->flags & ZIP_ZF_EOF)
-	ret = (zff->crc_orig == zff->crc);
-    else
-	ret = zff->error.zip_err;
+    ret = 0;
+    if (zf->error.zip_err)
+	ret = zf->error.zip_err;
+    else if ((zf->flags & ZIP_ZF_CRC) && (zf->flags & ZIP_ZF_EOF)) {
+	/* if EOF, compare CRC */
+	if (zf->crc_orig != zf->crc)
+	    ret = ZIP_ER_CRC;
+    }
 
-    free(zff);
+    free(zf);
     return ret;
 }

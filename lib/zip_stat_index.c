@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_stat_index.c,v 1.1.4.3 2004/04/10 23:15:55 dillo Exp $
+  $NiH: zip_stat_index.c,v 1.10 2006/04/24 14:04:19 dillo Exp $
 
   zip_stat_index.c -- get information about file by index
-  Copyright (C) 1999, 2003 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2006 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -43,26 +43,51 @@
 int
 zip_stat_index(struct zip *za, int index, int flags, struct zip_stat *st)
 {
+    const char *name;
+    
     if (index < 0 || index >= za->nentry) {
-	_zip_error_set(&za->error, ZERR_INVAL, 0);
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
 	return -1;
     }
 
+    if ((name=zip_get_name(za, index, flags)) == NULL)
+	return -1;
+    
+
     if ((flags & ZIP_FL_UNCHANGED) == 0
 	&& ZIP_ENTRY_DATA_CHANGED(za->entry+index)) {
-	/* XXX: call ch_func with ZIP_CMD_STAT */
-	_zip_error_set(&za->error, ZERR_CHANGED, 0);
-	return NULL;
+	if (za->entry[index].source->f(za->entry[index].source->ud,
+				     st, sizeof(*st), ZIP_SOURCE_STAT) < 0) {
+	    _zip_error_set(&za->error, ZIP_ER_CHANGED, 0);
+	    return -1;
+	}
     }
-    
-    st->name = zip_get_name(za, index);
-    st->index = index;
-    st->crc = za->cdir->entry[index].crc;
-    st->size = za->cdir->entry[index].uncomp_size;
-    st->mtime = za->cdir->entry[index].last_mod;
-    st->comp_size = za->cdir->entry[index].comp_size;
-    st->comp_method = za->cdir->entry[index].comp_method;
-    /* st->bitflags = za->cdir->entry[index].bitflags; */
+    else {
+	if (za->cdir == NULL || index >= za->cdir->nentry) {
+	    _zip_error_set(&za->error, ZIP_ER_INVAL, 0);
+	    return -1;
+	}
+	
+	st->crc = za->cdir->entry[index].crc;
+	st->size = za->cdir->entry[index].uncomp_size;
+	st->mtime = za->cdir->entry[index].last_mod;
+	st->comp_size = za->cdir->entry[index].comp_size;
+	st->comp_method = za->cdir->entry[index].comp_method;
+	if (za->cdir->entry[index].bitflags & ZIP_GPBF_ENCRYPTED) {
+	    if (za->cdir->entry[index].bitflags & ZIP_GPBF_STRONG_ENCRYPTION) {
+		/* XXX */
+		st->encryption_method = ZIP_EM_UNKNOWN;
+	    }
+	    else
+		st->encryption_method = ZIP_EM_TRAD_PKWARE;
+	}
+	else
+	    st->encryption_method = ZIP_EM_NONE;
+	/* st->bitflags = za->cdir->entry[index].bitflags; */
+    }
 
+    st->index = index;
+    st->name = name;
+    
     return 0;
 }

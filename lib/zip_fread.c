@@ -1,8 +1,8 @@
 /*
-  $NiH: zip_fread.c,v 1.8.4.2 2004/04/08 16:56:07 dillo Exp $
+  $NiH: zip_fread.c,v 1.20 2006/02/22 19:52:20 dillo Exp $
 
   zip_fread.c -- read from file
-  Copyright (C) 1999 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999, 2004, 2005 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -41,44 +41,49 @@
 
 
 ssize_t
-zip_fread(struct zip_file *zff, void *outbuf, size_t toread)
+zip_fread(struct zip_file *zf, void *outbuf, size_t toread)
 {
-    int len, out_before, ret;
+    int ret;
+    size_t out_before, len;
+    int i;
 
-    if (!zff)
+    if (!zf)
 	return -1;
 
-    if (zff->error.zip_err != 0)
+    if (zf->error.zip_err != 0)
 	return -1;
 
-    if ((zff->flags & ZIP_ZF_EOF) || (toread == 0))
+    if ((zf->flags & ZIP_ZF_EOF) || (toread == 0))
 	return 0;
 
-    if (zff->bytes_left == 0) {
-	zff->flags |= ZIP_ZF_EOF;
-	if (zff->crc != zff->crc_orig) {
-	    _zip_error_set(&zff->error, ZERR_CRC, 0);
-	    return -1;
+    if (zf->bytes_left == 0) {
+	zf->flags |= ZIP_ZF_EOF;
+	if (zf->flags & ZIP_ZF_CRC) {
+	    if (zf->crc != zf->crc_orig) {
+		_zip_error_set(&zf->error, ZIP_ER_CRC, 0);
+		return -1;
+	    }
 	}
 	return 0;
     }
     
-    if (zff->flags & ZIP_ZF_COMP) {
-	ret = _zip_file_fillbuf(outbuf, toread, zff);
+    if ((zf->flags & ZIP_ZF_DECOMP) == 0) {
+	ret = _zip_file_fillbuf(outbuf, toread, zf);
 	if (ret > 0) {
-	    zff->crc = crc32(zff->crc, outbuf, ret);
-	    zff->bytes_left -= ret;
+	    if (zf->flags & ZIP_ZF_CRC)
+		zf->crc = crc32(zf->crc, (Bytef *)outbuf, ret);
+	    zf->bytes_left -= ret;
 	}
 	return ret;
     }
     
-    zff->zstr->next_out = outbuf;
-    zff->zstr->avail_out = toread;
-    out_before = zff->zstr->total_out;
+    zf->zstr->next_out = (Bytef *)outbuf;
+    zf->zstr->avail_out = toread;
+    out_before = zf->zstr->total_out;
     
     /* endless loop until something has been accomplished */
     for (;;) {
-	ret = inflate(zff->zstr, Z_SYNC_FLUSH);
+	ret = inflate(zf->zstr, Z_SYNC_FLUSH);
 
 	switch (ret) {
 	case Z_OK:
@@ -86,25 +91,26 @@ zip_fread(struct zip_file *zff, void *outbuf, size_t toread)
 	    /* all ok */
 	    /* Z_STREAM_END probably won't happen, since we didn't
 	       have a header */
-	    len = zff->zstr->total_out - out_before;
-	    if (len >= zff->bytes_left || len >= toread) {
-		zff->crc = crc32(zff->crc, outbuf, len);
-		zff->bytes_left -= len;
+	    len = zf->zstr->total_out - out_before;
+	    if (len >= zf->bytes_left || len >= toread) {
+		if (zf->flags & ZIP_ZF_CRC)
+		    zf->crc = crc32(zf->crc, (Bytef *)outbuf, len);
+		zf->bytes_left -= len;
 	        return len;
 	    }
 	    break;
 
 	case Z_BUF_ERROR:
-	    if (zff->zstr->avail_in == 0) {
-		len = _zip_file_fillbuf(zff->buffer, BUFSIZE, zff);
-		if (len == 0) {
-		    _zip_error_set(&zff->error, ZERR_INCONS, 0);
+	    if (zf->zstr->avail_in == 0) {
+		i = _zip_file_fillbuf(zf->buffer, BUFSIZE, zf);
+		if (i == 0) {
+		    _zip_error_set(&zf->error, ZIP_ER_INCONS, 0);
 		    return -1;
 		}
-		else if (len < 0)
+		else if (i < 0)
 		    return -1;
-		zff->zstr->next_in = zff->buffer;
-		zff->zstr->avail_in = len;
+		zf->zstr->next_in = (Bytef *)zf->buffer;
+		zf->zstr->avail_in = i;
 		continue;
 	    }
 	    /* fallthrough */
@@ -112,7 +118,7 @@ zip_fread(struct zip_file *zff, void *outbuf, size_t toread)
 	case Z_DATA_ERROR:
 	case Z_STREAM_ERROR:
 	case Z_MEM_ERROR:
-	    _zip_error_set(&zff->error, ZERR_ZLIB, ret);
+	    _zip_error_set(&zf->error, ZIP_ER_ZLIB, ret);
 	    return -1;
 	}
     }
