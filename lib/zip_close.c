@@ -1,6 +1,6 @@
 /*
   zip_close.c -- close zip archive and update changes
-  Copyright (C) 1999-2011 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -162,31 +162,35 @@ zip_close(struct zip *za)
 					      ZIP_FL_UNCHANGED) == 0);
     error = 0;
     for (j=0; j<survivors; j++) {
+	int new_data;
+
 	i = filelist[j].idx;
 
+	new_data = (ZIP_ENTRY_DATA_CHANGED(za->entry+i) || new_torrentzip || (za->entry[i].changes.valid & ZIP_DIRENT_COMP_METHOD));
+
 	/* create new local directory entry */
-	if (ZIP_ENTRY_DATA_CHANGED(za->entry+i) || new_torrentzip) {
+	if (new_data) {
 	    _zip_dirent_init(&de);
 
 	    if (zip_get_archive_flag(za, ZIP_AFL_TORRENT, 0))
 		_zip_dirent_torrent_normalize(&de);
 		
+	    if (za->entry[i].changes.valid & ZIP_DIRENT_COMP_METHOD)
+		de.settable.comp_method = za->entry[i].changes.comp_method;
+
 	    /* use it as central directory entry */
 	    memcpy(cd->entry+j, &de, sizeof(cd->entry[j]));
 
 	    /* set/update file name */
-	    if (za->entry[i].ch_filename == NULL) {
+	    if ((za->entry[i].changes.valid & ZIP_DIRENT_FILENAME) == 0) {
 		if (za->entry[i].state == ZIP_ST_ADDED) {
-		    de.filename = strdup("-");
-		    de.filename_len = 1;
-		    cd->entry[j].filename = "-";
-		    cd->entry[j].filename_len = 1;
+		    /* XXX: this can't happen, remove code */
+		    de.settable.filename = strdup("-");
+		    cd->entry[j].settable.filename = "-";
 		}
 		else {
-		    de.filename = strdup(za->cdir->entry[i].filename);
-		    de.filename_len = strlen(de.filename);
-		    cd->entry[j].filename = za->cdir->entry[i].filename;
-		    cd->entry[j].filename_len = de.filename_len;
+		    de.settable.filename = strdup(za->cdir->entry[i].settable.filename);
+		    cd->entry[j].settable.filename = za->cdir->entry[i].settable.filename;
 		}
 	    }
 	}
@@ -212,49 +216,50 @@ zip_close(struct zip *za)
 	    }
 	}
 
-	if (za->entry[i].ch_filename) {
-	    free(de.filename);
-	    if ((de.filename=strdup(za->entry[i].ch_filename)) == NULL) {
+	if (za->entry[i].changes.valid & ZIP_DIRENT_FILENAME) {
+	    free(de.settable.filename);
+	    if ((de.settable.filename=strdup(za->entry[i].changes.filename)) == NULL) {
 		error = 1;
 		break;
 	    }
-	    de.filename_len = strlen(de.filename);
-	    cd->entry[j].filename = za->entry[i].ch_filename;
-	    cd->entry[j].filename_len = de.filename_len;
+	    cd->entry[j].settable.filename = za->entry[i].changes.filename;
 	}
 
-	if (za->entry[i].ch_extra_len != -1) {
-	    free(de.extrafield);
-	    if ((de.extrafield=malloc(za->entry[i].ch_extra_len)) == NULL) {
-		error = 1;
-		break;
-	    }
-	    memcpy(de.extrafield, za->entry[i].ch_extra, za->entry[i].ch_extra_len);
-	    de.extrafield_len = za->entry[i].ch_extra_len;
+	if (za->entry[i].changes.valid & ZIP_DIRENT_EXTRAFIELD) {
+	    free(de.settable.extrafield);
+	    if (za->entry[i].changes.extrafield_len > 0) {
+	        if ((de.settable.extrafield=malloc(za->entry[i].changes.extrafield_len)) == NULL) {
+		    error = 1;
+		    break;
+	        }
+	        memcpy(de.settable.extrafield, za->entry[i].changes.extrafield, za->entry[i].changes.extrafield_len);
+            }
+	    else
+		de.settable.extrafield = NULL;
+	    de.settable.extrafield_len = za->entry[i].changes.extrafield_len;
 	    /* as the rest of cd entries, its malloc/free is done by za */
 	    /* TODO unsure if this should also be set in the CD --
 	     * not done for now
-	    cd->entry[j].extrafield = za->entry[i].ch_extra;
-	    cd->entry[j].extrafield_len = za->entry[i].ch_extra_len;
+	    cd->entry[j].settable.extrafield = za->entry[i].changes.extrafield;
+	    cd->entry[j].settable.extrafield_len = za->entry[i].changes.extrafield_len;
 	    */
 	}
 
 	if (zip_get_archive_flag(za, ZIP_AFL_TORRENT, 0) == 0
-	    && za->entry[i].ch_comment_len != -1) {
+	    && za->entry[i].changes.valid & ZIP_DIRENT_COMMENT) {
 	    /* as the rest of cd entries, its malloc/free is done by za */
-	    cd->entry[j].comment = za->entry[i].ch_comment;
-	    cd->entry[j].comment_len = za->entry[i].ch_comment_len;
+	    cd->entry[j].settable.comment = za->entry[i].changes.comment;
+	    cd->entry[j].settable.comment_len = za->entry[i].changes.comment_len;
 	}
 
 	cd->entry[j].offset = ftello(out);
 
-	if (ZIP_ENTRY_DATA_CHANGED(za->entry+i) || new_torrentzip) {
+	if (new_data) {
 	    struct zip_source *zs;
 
 	    zs = NULL;
 	    if (!ZIP_ENTRY_DATA_CHANGED(za->entry+i)) {
-		if ((zs=zip_source_zip(za, za, i, ZIP_FL_RECOMPRESS, 0, -1))
-		    == NULL) {
+		if ((zs=zip_source_zip(za, za, i, 0, 0, -1)) == NULL) {
 		    error = 1;
 		    break;
 		}
@@ -270,7 +275,7 @@ zip_close(struct zip *za)
 		zip_source_free(zs);
 	    
 	    cd->entry[j].last_mod = de.last_mod;
-	    cd->entry[j].comp_method = de.comp_method;
+	    cd->entry[j].settable.comp_method = de.settable.comp_method;
 	    cd->entry[j].comp_size = de.comp_size;
 	    cd->entry[j].uncomp_size = de.uncomp_size;
 	    cd->entry[j].crc = de.crc;
@@ -353,7 +358,6 @@ add_data(struct zip *za, struct zip_source *src, struct zip_dirent *de,
     off_t offstart, offdata, offend;
     struct zip_stat st;
     struct zip_source *s2;
-    zip_compression_implementation comp_impl;
     int ret;
     
     if (zip_source_stat(src, &st) < 0) {
@@ -366,28 +370,52 @@ add_data(struct zip *za, struct zip_source *src, struct zip_dirent *de,
     if (_zip_dirent_write(de, ft, 1, &za->error) < 0)
 	return -1;
 
-    if ((s2=zip_source_crc(za, src, 0)) == NULL) {
-	zip_source_pop(s2);
-	return -1;
+    if ((st.valid & ZIP_STAT_COMP_METHOD) == 0) {
+	st.valid |= ZIP_STAT_COMP_METHOD;
+	st.comp_method = ZIP_CM_STORE;
     }
-    
-    /* XXX: deflate 0-byte files for torrentzip? */
-    if (((st.valid & ZIP_STAT_COMP_METHOD) == 0
-	 || st.comp_method == ZIP_CM_STORE)
-	&& ((st.valid & ZIP_STAT_SIZE) == 0 || st.size != 0)) {
-	comp_impl = NULL;
-	if ((comp_impl=zip_get_compression_implementation(ZIP_CM_DEFLATE))
-	    == NULL) {
-	    _zip_error_set(&za->error, ZIP_ER_COMPNOTSUPP, 0);
-	    zip_source_pop(s2);
+
+    if (st.comp_method != de->settable.comp_method) {
+	struct zip_source *s_store, *s_crc;
+	zip_compression_implementation comp_impl;
+	
+	if (st.comp_method != ZIP_CM_STORE) {
+	    if ((comp_impl=zip_get_compression_implementation(st.comp_method)) == NULL) {
+		_zip_error_set(&za->error, ZIP_ER_COMPNOTSUPP, 0);
+		return -1;
+	    }
+	    if ((s_store=comp_impl(za, src, st.comp_method, ZIP_CODEC_DECODE)) == NULL) {
+		/* error set by comp_impl */
+		return -1;
+	    }
+	}
+	else
+	    s_store = src;
+
+	if ((s_crc=zip_source_crc(za, s_store, 0)) == NULL) {
+	    if (s_store != src)
+		zip_source_pop(s_store);
 	    return -1;
 	}
-	if ((s2=comp_impl(za, s2, ZIP_CM_DEFLATE, ZIP_CODEC_ENCODE))
-	    == NULL) {
-	    /* XXX: set error? */
-	    zip_source_pop(s2);
-	    return -1;
+
+	/* XXX: deflate 0-byte files for torrentzip? */
+	if (de->settable.comp_method != ZIP_CM_STORE && ((st.valid & ZIP_STAT_SIZE) == 0 || st.size != 0)) {
+	    if ((comp_impl=zip_get_compression_implementation(de->settable.comp_method)) == NULL) {
+		_zip_error_set(&za->error, ZIP_ER_COMPNOTSUPP, 0);
+		zip_source_pop(s_crc);
+		if (s_store != src)
+		    zip_source_pop(s_store);
+		return -1;
+	    }
+	    if ((s2=comp_impl(za, s_crc, de->settable.comp_method, ZIP_CODEC_ENCODE)) == NULL) {
+		zip_source_pop(s_crc);
+		if (s_store != src)
+		    zip_source_pop(s_store);
+		return -1;
+	    }
 	}
+	else
+	    s2 = s_crc;
     }
     else
 	s2 = src;
@@ -418,7 +446,7 @@ add_data(struct zip *za, struct zip_source *src, struct zip_dirent *de,
     }
 
     de->last_mod = st.mtime;
-    de->comp_method = st.comp_method;
+    de->settable.comp_method = st.comp_method;
     de->crc = st.crc;
     de->uncomp_size = st.size;
     de->comp_size = offend - offdata;
@@ -548,13 +576,18 @@ static int
 _zip_cdir_set_comment(struct zip_cdir *dest, struct zip *src)
 {
     if (src->ch_comment_len != -1) {
-	dest->comment = _zip_memdup(src->ch_comment,
-				    src->ch_comment_len, &src->error);
-	if (dest->comment == NULL)
-	    return -1;
 	dest->comment_len = src->ch_comment_len;
-    } else {
-	if (src->cdir && src->cdir->comment) {
+	if (src->ch_comment_len == 0)
+	    dest->comment = NULL;
+	else {
+	    dest->comment = _zip_memdup(src->ch_comment,
+				        src->ch_comment_len, &src->error);
+	    if (dest->comment == NULL)
+	        return -1;
+	}
+    }
+    else {
+	if (src->cdir && src->cdir->comment_len > 0) {
 	    dest->comment = _zip_memdup(src->cdir->comment,
 					src->cdir->comment_len, &src->error);
 	    if (dest->comment == NULL)
@@ -580,9 +613,7 @@ _zip_changed(struct zip *za, int *survivorsp)
 	changed = 1;
 
     for (i=0; i<za->nentry; i++) {
-	if ((za->entry[i].state != ZIP_ST_UNCHANGED)
-	    || (za->entry[i].ch_extra_len != -1)
-	    || (za->entry[i].ch_comment_len != -1))
+	if (za->entry[i].state != ZIP_ST_UNCHANGED || za->entry[i].changes.valid != 0)
 	    changed = 1;
 	if (za->entry[i].state != ZIP_ST_DELETED)
 	    survivors++;

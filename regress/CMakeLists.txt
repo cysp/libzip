@@ -5,8 +5,9 @@ SET(STANDALONE_TEST_PROGRAMS
   add_from_file
   add_from_filep
   add_from_zip
-  encoding
+#  encoding # uses internal function, which doesn't work on Windows
   encrypt
+  fopen_unchanged
   fread
   get_comment
   name_locate
@@ -17,17 +18,27 @@ SET(STANDALONE_TEST_PROGRAMS
 )
 
 SET(HELPER_TEST_PROGRAMS
+  rename
+  set_compression
   tryopen
 )
 
 SET(EXTRA_TESTS
   open_cons_extrabytes.test
+  open_empty.test
   open_extrabytes.test
   open_new_but_exists.test
   open_new_ok.test
   open_nonarchive.test
   open_nosuchfile.test
   open_ok.test
+  rename_fail.test
+  rename_ok.test
+  set_compression_deflate_to_deflate.test
+  set_compression_deflate_to_store.test
+  set_compression_store_to_deflate.test
+  set_compression_store_to_store.test
+  set_compression_unknown.test
 )
 
 SET(ENV{srcdir} ${CMAKE_CURRENT_SOURCE_DIR})

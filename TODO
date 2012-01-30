@@ -46,6 +46,9 @@ Features
 * add functions to:
   . set last modification time for entry
   . read/set ASCII file flag? (wiz: more general options?)
+  . get/set "version made by" and "external file attributes"
+    (can be used to decide if an entry is a directory, if the
+     archive was created on DOS)
 * zip_commit (to finish changes without closing archive)
 * support for zip64 (large file)
 * add custom compression function support
@@ -59,6 +62,7 @@ Features
 
 Bugs
 ====
+* some systems return NULL for malloc(0); fix libzip to not use malloc(0)
 * check for limits imposed by format (central dir size, file size, ...)
 * set "version of encoding software" to proper value (2.0?)
 * _zip_checkcons return value can overflow
@@ -71,9 +75,10 @@ Bugs
 
 Cleanup
 =======
-* [cleanup] get rid of zip_get_{compression,encryption}_implementation
-* [cleanup] use zip_*int*_t internally
-* [cleanup] don't make zip_source_zip go through zip_fread
+* get rid of zip_get_{compression,encryption}_implementation
+* use zip_*int*_t internally
+* don't make zip_source_zip go through zip_fread
+* completely get rid of off_t
 
 
 Consistency

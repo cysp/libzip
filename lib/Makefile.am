@@ -56,6 +56,7 @@ libzip_la_SOURCES=\
 	zip_set_archive_flag.c \
 	zip_set_default_password.c \
 	zip_set_file_comment.c \
+	zip_set_file_compression.c \
 	zip_set_file_extra.c \
 	zip_source_buffer.c \
 	zip_source_close.c \
@@ -84,7 +85,7 @@ libzip_la_SOURCES=\
 	zip_unchange_data.c \
 	zip_utf-8.c
 
-BUILT_SOURCES=zip_err_str.c zipconf.h
+BUILT_SOURCES=zipconf.h
 CLEANFILES=	${BUILT_SOURCES}
 
 EXTRA_DIST=	CMakeLists.txt \

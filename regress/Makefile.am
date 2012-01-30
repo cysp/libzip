@@ -4,18 +4,22 @@ noinst_PROGRAMS= \
 	add_from_file \
 	add_from_filep \
 	add_from_zip \
+	cp437 \
 	encoding \
 	encrypt \
+	fopen_unchanged \
 	fread \
 	get_comment \
 	name_locate \
+	rename \
 	set_comment_all \
 	set_comment_localonly \
 	set_comment_removeglobal \
 	set_comment_revert \
+	set_compression \
 	tryopen
 
-EXTRA_PROGRAMS=deltest ziptest
+EXTRA_PROGRAMS=deltest
 
 EXTRA_DIST= \
 	CMakeLists.txt \
@@ -24,6 +28,7 @@ EXTRA_DIST= \
 	broken.zip \
 	encrypt.zip \
 	manyfiles.zip \
+	rename_ok.zip \
 	test.zip \
 	testbuffer.zip \
 	testdir.zip \
@@ -31,6 +36,8 @@ EXTRA_DIST= \
 	testchangedlocal.zip \
 	testcomment.zip \
 	testcommentremoved.zip \
+	testdeflated.zip \
+	testempty.zip \
 	testextrabytes.zip \
 	testfile.txt \
 	testfile.zip \
@@ -44,16 +51,21 @@ TESTS= \
 	add_dir.test \
 	add_from_buffer.test \
 	add_from_file.test \
+	add_from_file_duplicate.test \
+	add_from_file_twice_duplicate.test \
 	add_from_filep.test \
 	add_from_zip.test \
 	encoding-ascii.test \
 	encoding-cp437.test \
+	encoding-cp437-all.test \
 	encoding-utf-8.test \
 	encrypt.test \
+	fopen_unchanged.test \
 	fread.test \
 	get_comment.test \
 	name_locate.test \
 	open_cons_extrabytes.test \
+	open_empty.test \
 	open_extrabytes.test \
 	open_many_ok.test \
 	open_new_but_exists.test \
@@ -61,15 +73,19 @@ TESTS= \
 	open_nonarchive.test \
 	open_nosuchfile.test \
 	open_ok.test \
+	rename_fail.test \
+	rename_ok.test \
 	set_comment_all.test \
 	set_comment_localonly.test \
 	set_comment_removeglobal.test \
 	set_comment_revert.test \
+	set_compression_deflate_to_deflate.test \
+	set_compression_deflate_to_store.test \
+	set_compression_store_to_deflate.test \
+	set_compression_store_to_store.test \
+	set_compression_unknown.test \
 	torrent-already.test \
 	torrent-new.test
-# problems with comparing stderr output
-NOTYET= \
-	add_from_file_duplicate.test
 
-AM_CPPFLAGS=-I${top_srcdir}/lib -I${top_srcdir}/src
+AM_CPPFLAGS=-I${top_srcdir}/lib -I../lib -I${top_srcdir}/src
 LDADD=${top_builddir}/lib/libzip.la

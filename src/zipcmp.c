@@ -1,6 +1,6 @@
 /*
   zipcmp.c -- compare zip files
-  Copyright (C) 2003-2010 Dieter Baron and Thomas Klausner
+  Copyright (C) 2003-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -49,6 +49,7 @@
 #endif
 
 #include "zip.h"
+#include "zipint.h"
 
 struct entry {
     char *name;
@@ -78,7 +79,7 @@ char help[] = "\n\
 Report bugs to <libzip@nih.at>.\n";
 
 char version_string[] = PROGRAM " (" PACKAGE " " VERSION ")\n\
-Copyright (C) 2010 Dieter Baron and Thomas Klausner\n\
+Copyright (C) 2012 Dieter Baron and Thomas Klausner\n\
 " PACKAGE " comes with ABSOLUTELY NO WARRANTY, to the extent permitted by law.\n";
 
 #define OPTIONS "hViqtv"
@@ -171,23 +172,27 @@ compare_zip(char * const zn[], int verbose)
 
 	n[i] = zip_get_num_files(za);
 
-	if ((e[i]=malloc(sizeof(*e[i]) * n[i])) == NULL) {
-	    fprintf(stderr, "%s: malloc failure\n", prg);
-	    exit(1);
-	}
+	if (n[i] == 0)
+	    e[i] = NULL;
+        else {
+	    if ((e[i]=malloc(sizeof(*e[i]) * n[i])) == NULL) {
+	        fprintf(stderr, "%s: malloc failure\n", prg);
+	        exit(1);
+	    }
 
-	for (j=0; j<n[i]; j++) {
-	    zip_stat_index(za, j, 0, &st);
-	    e[i][j].name = strdup(st.name);
-	    e[i][j].size = st.size;
-	    e[i][j].crc = st.crc;
-	    if (test_files)
-		test_file(za, j, st.size, st.crc);
-	}
+	    for (j=0; j<n[i]; j++) {
+	        zip_stat_index(za, j, 0, &st);
+	        e[i][j].name = strdup(st.name);
+	        e[i][j].size = st.size;
+	        e[i][j].crc = st.crc;
+	        if (test_files)
+		    test_file(za, j, st.size, st.crc);
+	    }
+	    qsort(e[i], n[i], sizeof(e[i][0]), entry_cmp);
+        }
 
 	zip_close(za);
 
-	qsort(e[i], n[i], sizeof(e[i][0]), entry_cmp);
     }
 
     switch (compare_list(zn, verbose,
