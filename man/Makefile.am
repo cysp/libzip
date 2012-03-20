@@ -11,6 +11,7 @@ MAN3=	libzip.mdoc \
 	zip_add_dir.mdoc \
 	zip_close.mdoc \
 	zip_delete.mdoc \
+	zip_discard.mdoc \
 	zip_error_clear.mdoc \
 	zip_error_get.mdoc \
 	zip_error_get_sys_type.mdoc \
@@ -36,6 +37,7 @@ MAN3=	libzip.mdoc \
 	zip_set_archive_flag.mdoc \
 	zip_set_default_password.mdoc \
 	zip_set_file_comment.mdoc \
+	zip_set_file_compression.mdoc \
         zip_set_file_extra.mdoc \
 	zip_source_buffer.mdoc \
 	zip_source_file.mdoc \

@@ -1,6 +1,6 @@
 /*
   zip_dirent.c -- read directory entry (local or central), clean dirent
-  Copyright (C) 1999-2009 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -61,6 +61,7 @@ _zip_cdir_free(struct zip_cdir *cd)
     for (i=0; i<cd->nentry; i++)
 	_zip_dirent_finalize(cd->entry+i);
     free(cd->comment);
+    free(cd->comment_converted);
     free(cd->entry);
     free(cd);
 }
@@ -76,6 +77,9 @@ _zip_cdir_grow(struct zip_cdir *cd, int nentry, struct zip_error *error)
 	_zip_error_set(error, ZIP_ER_INTERNAL, 0);
 	return -1;
     }
+
+    if (nentry == cd->nentry)
+	return 0;
 
     if ((entry=((struct zip_dirent *)
 		realloc(cd->entry, sizeof(*(cd->entry))*nentry))) == NULL) {
@@ -101,7 +105,9 @@ _zip_cdir_new(int nentry, struct zip_error *error)
 	return NULL;
     }
 
-    if ((cd->entry=(struct zip_dirent *)malloc(sizeof(*(cd->entry))*nentry))
+    if (nentry == 0)
+	cd->entry = NULL;
+    else if ((cd->entry=(struct zip_dirent *)malloc(sizeof(*(cd->entry))*nentry))
 	== NULL) {
 	_zip_error_set(error, ZIP_ER_MEMORY, 0);
 	free(cd);
@@ -114,6 +120,8 @@ _zip_cdir_new(int nentry, struct zip_error *error)
     cd->size = cd->offset = 0;
     cd->comment = NULL;
     cd->comment_len = 0;
+    cd->comment_type = ZIP_ENCODING_UNKNOWN;
+    cd->comment_converted = NULL;
 
     return cd;
 }
@@ -157,12 +165,16 @@ _zip_cdir_write(struct zip_cdir *cd, FILE *fp, struct zip_error *error)
 void
 _zip_dirent_finalize(struct zip_dirent *zde)
 {
-    free(zde->filename);
-    zde->filename = NULL;
-    free(zde->extrafield);
-    zde->extrafield = NULL;
-    free(zde->comment);
-    zde->comment = NULL;
+    free(zde->filename_converted);
+    zde->filename_converted = NULL;
+    free(zde->comment_converted);
+    zde->comment_converted = NULL;
+    free(zde->settable.filename);
+    zde->settable.filename = NULL;
+    free(zde->settable.extrafield);
+    zde->settable.extrafield = NULL;
+    free(zde->settable.comment);
+    zde->settable.comment = NULL;
 }
 
 
@@ -170,24 +182,28 @@ _zip_dirent_finalize(struct zip_dirent *zde)
 void
 _zip_dirent_init(struct zip_dirent *de)
 {
+    de->settable.valid = 0;
+    de->settable.comp_method = 0;
+    de->settable.filename = NULL;
+    de->settable.extrafield = NULL;
+    de->settable.extrafield_len = 0;
+    de->settable.comment = NULL;
+    de->settable.comment_len = 0;
     de->version_madeby = 0;
     de->version_needed = 20; /* 2.0 */
     de->bitflags = 0;
-    de->comp_method = 0;
     de->last_mod = 0;
     de->crc = 0;
     de->comp_size = 0;
     de->uncomp_size = 0;
-    de->filename = NULL;
-    de->filename_len = 0;
-    de->extrafield = NULL;
-    de->extrafield_len = 0;
-    de->comment = NULL;
-    de->comment_len = 0;
     de->disk_number = 0;
     de->int_attrib = 0;
     de->ext_attrib = 0;
     de->offset = 0;
+    de->fn_type = ZIP_ENCODING_UNKNOWN;
+    de->filename_converted = NULL;
+    de->fc_type = ZIP_ENCODING_UNKNOWN;
+    de->comment_converted = NULL;
 }
 
 
@@ -219,6 +235,7 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     unsigned char *cur;
     unsigned short dostime, dosdate;
     zip_uint32_t size;
+    zip_uint16_t filename_len;
 
     if (local)
 	size = LENTRYSIZE;
@@ -249,16 +266,18 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     }
     cur += 4;
 
-    
+
     /* convert buffercontents to zip_dirent */
-    
+
+    _zip_dirent_init(zde);
     if (!local)
 	zde->version_madeby = _zip_read2(&cur);
     else
 	zde->version_madeby = 0;
     zde->version_needed = _zip_read2(&cur);
     zde->bitflags = _zip_read2(&cur);
-    zde->comp_method = _zip_read2(&cur);
+    zde->settable.comp_method = _zip_read2(&cur);
+    zde->settable.valid |= ZIP_DIRENT_COMP_METHOD;
     
     /* convert to time_t */
     dostime = _zip_read2(&cur);
@@ -269,28 +288,28 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     zde->comp_size = _zip_read4(&cur);
     zde->uncomp_size = _zip_read4(&cur);
     
-    zde->filename_len = _zip_read2(&cur);
-    zde->extrafield_len = _zip_read2(&cur);
+    filename_len = _zip_read2(&cur);
+    zde->settable.extrafield_len = _zip_read2(&cur);
     
     if (local) {
-	zde->comment_len = 0;
+	zde->settable.comment_len = 0;
 	zde->disk_number = 0;
 	zde->int_attrib = 0;
 	zde->ext_attrib = 0;
 	zde->offset = 0;
     } else {
-	zde->comment_len = _zip_read2(&cur);
+	zde->settable.comment_len = _zip_read2(&cur);
 	zde->disk_number = _zip_read2(&cur);
 	zde->int_attrib = _zip_read2(&cur);
 	zde->ext_attrib = _zip_read4(&cur);
 	zde->offset = _zip_read4(&cur);
     }
 
-    zde->filename = NULL;
-    zde->extrafield = NULL;
-    zde->comment = NULL;
+    zde->settable.filename = NULL;
+    zde->settable.extrafield = NULL;
+    zde->settable.comment = NULL;
 
-    size += zde->filename_len+zde->extrafield_len+zde->comment_len;
+    size += filename_len+zde->settable.extrafield_len+zde->settable.comment_len;
 
     if (leftp && (*leftp < size)) {
 	_zip_error_set(error, ZIP_ER_NOZIP, 0);
@@ -298,45 +317,58 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     }
 
     if (bufp) {
-	if (zde->filename_len) {
-	    zde->filename = _zip_readstr(&cur, zde->filename_len, 1, error);
-	    if (!zde->filename)
+	if (filename_len) {
+	    zde->settable.filename = _zip_readstr(&cur, filename_len, 1, error);
+	    if (!zde->settable.filename)
 		    return -1;
 	}
 
-	if (zde->extrafield_len) {
-	    zde->extrafield = _zip_readstr(&cur, zde->extrafield_len, 0,
+	if (zde->settable.extrafield_len) {
+	    zde->settable.extrafield = _zip_readstr(&cur, zde->settable.extrafield_len, 0,
 					   error);
-	    if (!zde->extrafield)
+	    if (!zde->settable.extrafield)
 		return -1;
 	}
 
-	if (zde->comment_len) {
-	    zde->comment = _zip_readstr(&cur, zde->comment_len, 0, error);
-	    if (!zde->comment)
+	if (zde->settable.comment_len) {
+	    zde->settable.comment = _zip_readstr(&cur, zde->settable.comment_len, 0, error);
+	    if (!zde->settable.comment)
 		return -1;
 	}
     }
     else {
-	if (zde->filename_len) {
-	    zde->filename = _zip_readfpstr(fp, zde->filename_len, 1, error);
-	    if (!zde->filename)
+	if (filename_len) {
+	    zde->settable.filename = _zip_readfpstr(fp, filename_len, 1, error);
+	    if (!zde->settable.filename)
 		    return -1;
 	}
 
-	if (zde->extrafield_len) {
-	    zde->extrafield = _zip_readfpstr(fp, zde->extrafield_len, 0,
+	if (zde->settable.extrafield_len) {
+	    zde->settable.extrafield = _zip_readfpstr(fp, zde->settable.extrafield_len, 0,
 					     error);
-	    if (!zde->extrafield)
+	    if (!zde->settable.extrafield)
 		return -1;
 	}
 
-	if (zde->comment_len) {
-	    zde->comment = _zip_readfpstr(fp, zde->comment_len, 0, error);
-	    if (!zde->comment)
+	if (zde->settable.comment_len) {
+	    zde->settable.comment = _zip_readfpstr(fp, zde->settable.comment_len, 0, error);
+	    if (!zde->settable.comment)
 		return -1;
 	}
     }
+
+    if (filename_len == 0) {
+	if ((zde->settable.filename=strdup("")) == NULL)
+	    return -1;
+    }
+    if (strlen(zde->settable.filename) != filename_len)
+	return -1;
+    zde->settable.valid |= ZIP_DIRENT_FILENAME;
+
+    if (zde->settable.comment_len)
+	zde->settable.valid |= ZIP_DIRENT_COMMENT;
+    if (zde->settable.extrafield_len)
+	zde->settable.valid |= ZIP_DIRENT_EXTRAFIELD;
 
     if (bufp)
       *bufp = cur;
@@ -387,7 +419,8 @@ _zip_dirent_torrent_normalize(struct zip_dirent *de)
     de->version_madeby = 0;
     de->version_needed = 20; /* 2.0 */
     de->bitflags = 2; /* maximum compression */
-    de->comp_method = ZIP_CM_DEFLATE;
+    de->settable.comp_method = ZIP_CM_DEFLATE;
+    de->settable.valid |= ZIP_DIRENT_COMP_METHOD;
     de->last_mod = last_mod;
 
     de->disk_number = 0;
@@ -395,12 +428,13 @@ _zip_dirent_torrent_normalize(struct zip_dirent *de)
     de->ext_attrib = 0;
     de->offset = 0;
 
-    free(de->extrafield);
-    de->extrafield = NULL;
-    de->extrafield_len = 0;
-    free(de->comment);
-    de->comment = NULL;
-    de->comment_len = 0;
+    free(de->settable.extrafield);
+    de->settable.extrafield = NULL;
+    de->settable.extrafield_len = 0;
+    free(de->settable.comment);
+    de->settable.comment = NULL;
+    de->settable.comment_len = 0;
+    de->settable.valid &= ~(ZIP_DIRENT_COMMENT|ZIP_DIRENT_EXTRAFIELD);
 }
 
 
@@ -420,6 +454,9 @@ _zip_dirent_write(struct zip_dirent *zde, FILE *fp, int localp,
 		  struct zip_error *error)
 {
     unsigned short dostime, dosdate;
+    zip_uint16_t filename_len;
+
+    filename_len = strlen(zde->settable.filename);
 
     fwrite(localp ? LOCAL_MAGIC : CENTRAL_MAGIC, 1, 4, fp);
 
@@ -427,7 +464,7 @@ _zip_dirent_write(struct zip_dirent *zde, FILE *fp, int localp,
 	_zip_write2(zde->version_madeby, fp);
     _zip_write2(zde->version_needed, fp);
     _zip_write2(zde->bitflags, fp);
-    _zip_write2(zde->comp_method, fp);
+    _zip_write2(zde->settable.comp_method, fp);
 
     _zip_u2d_time(zde->last_mod, &dostime, &dosdate);
     _zip_write2(dostime, fp);
@@ -437,26 +474,26 @@ _zip_dirent_write(struct zip_dirent *zde, FILE *fp, int localp,
     _zip_write4(zde->comp_size, fp);
     _zip_write4(zde->uncomp_size, fp);
     
-    _zip_write2(zde->filename_len, fp);
-    _zip_write2(zde->extrafield_len, fp);
+    _zip_write2(filename_len, fp);
+    _zip_write2(zde->settable.extrafield_len, fp);
     
     if (!localp) {
-	_zip_write2(zde->comment_len, fp);
+	_zip_write2(zde->settable.comment_len, fp);
 	_zip_write2(zde->disk_number, fp);
 	_zip_write2(zde->int_attrib, fp);
 	_zip_write4(zde->ext_attrib, fp);
 	_zip_write4(zde->offset, fp);
     }
 
-    if (zde->filename_len)
-	fwrite(zde->filename, 1, zde->filename_len, fp);
+    if (filename_len > 0)
+	fwrite(zde->settable.filename, 1, filename_len, fp);
 
-    if (zde->extrafield_len)
-	fwrite(zde->extrafield, 1, zde->extrafield_len, fp);
+    if (zde->settable.extrafield_len)
+	fwrite(zde->settable.extrafield, 1, zde->settable.extrafield_len, fp);
 
     if (!localp) {
-	if (zde->comment_len)
-	    fwrite(zde->comment, 1, zde->comment_len, fp);
+	if (zde->settable.comment_len)
+	    fwrite(zde->settable.comment, 1, zde->settable.comment_len, fp);
     }
 
     if (ferror(fp)) {
@@ -523,6 +560,9 @@ _zip_readfpstr(FILE *fp, unsigned int len, int nulp, struct zip_error *error)
 {
     char *r, *o;
 
+    if (len == 0 && nulp == 0)
+	return NULL;
+
     r = (char *)malloc(nulp ? len+1 : len);
     if (!r) {
 	_zip_error_set(error, ZIP_ER_MEMORY, 0);
@@ -552,6 +592,9 @@ static char *
 _zip_readstr(unsigned char **buf, int len, int nulp, struct zip_error *error)
 {
     char *r, *o;
+
+    if (len == 0 && nulp == 0)
+	return NULL;
 
     r = (char *)malloc(nulp ? len+1 : len);
     if (!r) {

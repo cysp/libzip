@@ -60,23 +60,31 @@ zip_int64_t
 _zip_replace(struct zip *za, zip_uint64_t idx, const char *name,
 	     struct zip_source *source)
 {
+    zip_uint64_t za_nentry_prev;
     if (ZIP_IS_RDONLY(za)) {
 	_zip_error_set(&za->error, ZIP_ER_RDONLY, 0);
 	return -1;
     }
 
+    za_nentry_prev = za->nentry;
     if (idx == ZIP_UINT64_MAX) {
 	if (_zip_entry_new(za) == NULL)
 	    return -1;
-
+	
 	idx = za->nentry - 1;
+	za->entry[idx].changes.valid |= ZIP_DIRENT_COMP_METHOD;
+	za->entry[idx].changes.comp_method = ZIP_CM_DEFLATE; /* XXX: default */
     }
     
+    if (name && _zip_set_name(za, idx, name) != 0) {
+	za->nentry = za_nentry_prev;
+	return -1;
+    }
+
+    /* does not change any name related data, so we can do it here;
+     * needed for a double add of the same file name */
     _zip_unchange_data(za->entry+idx);
 
-    if (name && _zip_set_name(za, idx, name) != 0)
-	return -1;
-    
     za->entry[idx].state = ((za->cdir == NULL || idx >= za->cdir->nentry)
 			    ? ZIP_ST_ADDED : ZIP_ST_REPLACED);
     za->entry[idx].source = source;

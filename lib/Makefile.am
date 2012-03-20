@@ -15,6 +15,7 @@ libzip_la_SOURCES=\
 	zip_close.c \
 	zip_delete.c \
 	zip_dirent.c \
+	zip_discard.c \
 	zip_entry_free.c \
 	zip_entry_new.c \
 	zip_err_str.c \
@@ -36,7 +37,6 @@ libzip_la_SOURCES=\
 	zip_fopen_index.c \
 	zip_fopen_index_encrypted.c \
 	zip_fread.c \
-	zip_free.c \
 	zip_get_archive_comment.c \
 	zip_get_archive_flag.c \
 	zip_get_compression_implementation.c \
@@ -56,6 +56,7 @@ libzip_la_SOURCES=\
 	zip_set_archive_flag.c \
 	zip_set_default_password.c \
 	zip_set_file_comment.c \
+	zip_set_file_compression.c \
 	zip_set_file_extra.c \
 	zip_source_buffer.c \
 	zip_source_close.c \
@@ -72,7 +73,9 @@ libzip_la_SOURCES=\
 	zip_source_pop.c \
 	zip_source_read.c \
 	zip_source_stat.c \
+	zip_source_window.c \
 	zip_source_zip.c \
+	zip_source_zip_new.c \
 	zip_set_name.c \
 	zip_stat.c \
 	zip_stat_index.c \
@@ -81,9 +84,10 @@ libzip_la_SOURCES=\
 	zip_unchange.c \
 	zip_unchange_all.c \
 	zip_unchange_archive.c \
-	zip_unchange_data.c
+	zip_unchange_data.c \
+	zip_utf-8.c
 
-BUILT_SOURCES=zip_err_str.c zipconf.h
+BUILT_SOURCES=zipconf.h
 CLEANFILES=	${BUILT_SOURCES}
 
 EXTRA_DIST=	CMakeLists.txt \

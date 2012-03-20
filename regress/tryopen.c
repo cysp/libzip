@@ -44,7 +44,7 @@
 
 const char *prg;
 
-const char *usage = "usage: %s [-cen] file\n";
+const char *usage = "usage: %s [-cent] file\n";
 
 
 
@@ -53,12 +53,13 @@ main(int argc, char *argv[])
 {
     const char *fname;
     struct zip *z;
-    int c, count, flags, ze;
+    int c, flags, ze;
+    zip_uint64_t count;
 
     flags = 0;
     prg = argv[0];
 
-    while ((c=getopt(argc, argv, "cen")) != -1) {
+    while ((c=getopt(argc, argv, "cent")) != -1) {
 	switch (c) {
 	case 'c':
 	    flags |= ZIP_CHECKCONS;
@@ -68,6 +69,9 @@ main(int argc, char *argv[])
 	    break;
 	case 'n':
 	    flags |= ZIP_CREATE;
+	    break;
+	case 't':
+	    flags |= ZIP_TRUNCATE;
 	    break;
 
 	default:
@@ -84,13 +88,15 @@ main(int argc, char *argv[])
     errno = 0;
 
     if ((z=zip_open(fname, flags, &ze)) != NULL) {
-	count = zip_get_num_files(z);
-	printf("opening `%s' succeeded, %d entries\n", fname, count);
+	count = zip_get_num_entries(z, 0);
+	printf("opening `%s' succeeded, %lld entries\n", fname, count);
 	zip_close(z);
 	return 0;
     }
 
-    printf("opening `%s' returned error %d/%d\n",
-	   fname, ze, errno);
+    printf("opening `%s' returned error %d", fname, ze);
+    if (zip_error_get_sys_type(ze) == ZIP_ET_SYS)
+	printf("/%d", errno);
+    printf("\n");
     return 1;
 }

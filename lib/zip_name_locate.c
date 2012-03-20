@@ -72,12 +72,9 @@ _zip_name_locate(struct zip *za, const char *fname, int flags,
 
     n = (flags & ZIP_FL_UNCHANGED) ? za->cdir->nentry : za->nentry;
     for (i=0; i<n; i++) {
-	if (flags & ZIP_FL_UNCHANGED)
-	    fn = za->cdir->entry[i].filename;
-	else
-	    fn = _zip_get_name(za, i, flags, error);
+	fn = _zip_get_name(za, i, flags, error);
 
-	/* newly added (partially filled) entry */
+	/* newly added (partially filled) entry or error */
 	if (fn == NULL)
 	    continue;
 	
@@ -87,8 +84,10 @@ _zip_name_locate(struct zip *za, const char *fname, int flags,
 		fn = p+1;
 	}
 
-	if (cmp(fname, fn) == 0)
+	if (cmp(fname, fn) == 0) {
+	    _zip_error_clear(error);
 	    return i;
+	}
     }
 
     _zip_error_set(error, ZIP_ER_NOENT, 0);

@@ -1,6 +1,6 @@
 /*
-  mkname.c -- add srcdir to name
-  Copyright (C) 2005 Dieter Baron and Thomas Klausner
+  zip_discard.c -- discard and free struct zip
+  Copyright (C) 1999-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -33,47 +33,51 @@
 
 
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include "mkname.h"
+#include "zipint.h"
 
 
 
-const char *
-mkname(const char *name)
+/* zip_discard:
+   frees the space allocated to a zipfile struct, and closes the
+   corresponding file. */
+
+void
+zip_discard(struct zip *za)
 {
-    static const char *srcdir;
-    static char *fullname;
-    static int len = 0;
-    static int srcdir_done = 0;
+    int i;
 
-    int nlen;
+    if (za == NULL)
+	return;
 
-    if (!srcdir_done) {
-	srcdir = getenv("SRCDIR");
-	srcdir_done = 1;
+    if (za->zn)
+	free(za->zn);
+
+    if (za->zp)
+	fclose(za->zp);
+
+    free(za->default_password);
+    _zip_cdir_free(za->cdir);
+    free(za->ch_comment);
+
+    if (za->entry) {
+	for (i=0; i<za->nentry; i++) {
+	    _zip_entry_free(za->entry+i);
+	}
+	free(za->entry);
     }
 
-    if (!srcdir)
-	return name;
-
-    nlen = strlen(srcdir) + strlen(name) + 2;
-
-    if (nlen > len) {
-	if (len == 0)
-	    fullname = malloc(nlen);
-	else
-	    fullname = realloc(fullname, nlen);
-
-	if (fullname == NULL) {
-	    fprintf(stderr, "malloc failure\n");
-	    exit(2);
+    for (i=0; i<za->nfile; i++) {
+	if (za->file[i]->error.zip_err == ZIP_ER_OK) {
+	    _zip_error_set(&za->file[i]->error, ZIP_ER_ZIPCLOSED, 0);
+	    za->file[i]->za = NULL;
 	}
     }
 
-    sprintf(fullname, "%s/%s", srcdir, name);
+    free(za->file);
+    
+    free(za);
 
-    return fullname;
+    return;
 }
