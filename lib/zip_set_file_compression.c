@@ -1,6 +1,6 @@
 /*
-  zip_free.c -- free struct zip
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  zip_set_file_compression.c -- set compression for file in archive
+  Copyright (C) 2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -33,51 +33,41 @@
 
 
 
-#include <stdlib.h>
-
 #include "zipint.h"
 
 
 
-/* _zip_free:
-   frees the space allocated to a zipfile struct, and closes the
-   corresponding file. */
-
-void
-_zip_free(struct zip *za)
+ZIP_EXTERN int
+zip_set_file_compression(struct zip *za, zip_uint64_t idx,
+			 zip_int32_t method, zip_uint32_t flags)
 {
-    int i;
-
-    if (za == NULL)
-	return;
-
-    if (za->zn)
-	free(za->zn);
-
-    if (za->zp)
-	fclose(za->zp);
-
-    free(za->default_password);
-    _zip_cdir_free(za->cdir);
-    free(za->ch_comment);
-
-    if (za->entry) {
-	for (i=0; i<za->nentry; i++) {
-	    _zip_entry_free(za->entry+i);
-	}
-	free(za->entry);
+    if (idx >= za->nentry) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
+	return -1;
     }
 
-    for (i=0; i<za->nfile; i++) {
-	if (za->file[i]->error.zip_err == ZIP_ER_OK) {
-	    _zip_error_set(&za->file[i]->error, ZIP_ER_ZIPCLOSED, 0);
-	    za->file[i]->za = NULL;
-	}
+    if (method != ZIP_CM_DEFAULT && method != ZIP_CM_STORE && method != ZIP_CM_DEFLATE) {
+	_zip_error_set(&za->error, ZIP_ER_COMPNOTSUPP, 0);
+	return -1;
     }
 
-    free(za->file);
+    if (ZIP_IS_RDONLY(za)) {
+	_zip_error_set(&za->error, ZIP_ER_RDONLY, 0);
+	return -1;
+    }
+
+    /* XXX: needs support for better of deflate/store
+     *      update man page when fixing this */
+    if (method == ZIP_CM_DEFAULT)
+	method = ZIP_CM_DEFLATE;
+
+    if (za->cdir != NULL && idx < za->cdir->nentry &&
+	method == za->cdir->entry[idx].settable.comp_method)
+	za->entry[idx].changes.valid &= ~ZIP_DIRENT_COMP_METHOD;
+    else {
+	za->entry[idx].changes.valid |= ZIP_DIRENT_COMP_METHOD;
+	za->entry[idx].changes.comp_method = method;
+    }
     
-    free(za);
-
-    return;
+    return 0;
 }

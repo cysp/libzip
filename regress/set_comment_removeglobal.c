@@ -1,6 +1,6 @@
 /*
   set_comment_removeglobal.c -- remove archive comment
-  Copyright (C) 2006 Dieter Baron and Thomas Klausner
+  Copyright (C) 2006-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -38,7 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "zip.h"
+#include "zipint.h"
 
 const char *prg;
 
@@ -73,7 +73,7 @@ main(int argc, char *argv[])
     }
 
     if (zip_close(za) == -1) {
-	fprintf(stderr, "%s: can't close zip archive `%s'\n", prg, archive);
+	fprintf(stderr, "%s: can't close zip archive `%s': %s\n", prg, archive, zip_strerror(za));
 	return 1;
     }
 

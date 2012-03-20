@@ -58,6 +58,7 @@ SET(LIBZIP_SOURCES
   zip_close.c
   zip_delete.c
   zip_dirent.c
+  zip_discard.c
   zip_entry_free.c
   zip_entry_new.c
   zip_err_str.c
@@ -69,6 +70,7 @@ SET(LIBZIP_SOURCES
   zip_error_to_str.c
   zip_fclose.c
   zip_fdopen.c
+  zip_set_file_compression.c
   zip_file_error_clear.c
   zip_file_error_get.c
   zip_file_get_offset.c
@@ -79,7 +81,6 @@ SET(LIBZIP_SOURCES
   zip_fopen_index.c
   zip_fopen_index_encrypted.c
   zip_fread.c
-  zip_free.c
   zip_get_archive_comment.c
   zip_get_archive_flag.c
   zip_get_compression_implementation.c
@@ -87,6 +88,7 @@ SET(LIBZIP_SOURCES
   zip_get_file_comment.c
   zip_get_file_extra.c
   zip_get_name.c
+  zip_get_num_entries.c
   zip_get_num_files.c
   zip_memdup.c
   zip_name_locate.c
@@ -115,7 +117,9 @@ SET(LIBZIP_SOURCES
   zip_source_pop.c
   zip_source_read.c
   zip_source_stat.c
+  zip_source_window.c
   zip_source_zip.c
+  zip_source_zip_new.c
   zip_stat.c
   zip_stat_index.c
   zip_stat_init.c
@@ -124,6 +128,7 @@ SET(LIBZIP_SOURCES
   zip_unchange_all.c
   zip_unchange_archive.c
   zip_unchange_data.c
+  zip_utf-8.c
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}

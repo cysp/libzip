@@ -1,6 +1,6 @@
 /*
   zip_open.c -- open zip archive by name
-  Copyright (C) 1999-2011 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -43,7 +43,7 @@
 #include "zipint.h"
 
 static void set_error(int *, struct zip_error *, int);
-static struct zip *_zip_allocate_new(const char *, int *);
+static struct zip *_zip_allocate_new(const char *, int, int *);
 static int _zip_checkcons(FILE *, struct zip_cdir *, struct zip_error *);
 static void _zip_check_torrentzip(struct zip *);
 static struct zip_cdir *_zip_find_central_dir(FILE *, int, int *, off_t);
@@ -66,8 +66,18 @@ zip_open(const char *fn, int flags, int *zep)
     case -1:
 	return NULL;
     case 0:
-	return _zip_allocate_new(fn, zep);
+	return _zip_allocate_new(fn, flags, zep);
     default:
+	if (flags & ZIP_TRUNCATE) {
+	    FILE *f;
+	    
+	    if ((f = fopen(fn, "rb")) == NULL) {
+		set_error(zep, NULL, ZIP_ER_OPEN);
+		return NULL;
+	    }
+	    fclose(f);
+	    return _zip_allocate_new(fn, flags, zep);
+	}
 	break;
     }
 
@@ -97,7 +107,7 @@ _zip_open(const char *fn, FILE *fp, int flags, int aflags, int *zep)
 
     /* treat empty files as empty archives */
     if (len == 0) {
-	if ((za=_zip_allocate_new(fn, zep)) == NULL)
+	if ((za=_zip_allocate_new(fn, flags, zep)) == NULL)
 	    fclose(fp);
 	else
 	    za->zp = fp;
@@ -110,7 +120,7 @@ _zip_open(const char *fn, FILE *fp, int flags, int aflags, int *zep)
 	return NULL;
     }
 
-    if ((za=_zip_allocate_new(fn, zep)) == NULL) {
+    if ((za=_zip_allocate_new(fn, flags, zep)) == NULL) {
 	_zip_cdir_free(cdir);
 	fclose(fp);
 	return NULL;
@@ -119,10 +129,12 @@ _zip_open(const char *fn, FILE *fp, int flags, int aflags, int *zep)
     za->cdir = cdir;
     za->zp = fp;
 
-    if ((za->entry=(struct zip_entry *)malloc(sizeof(*(za->entry))
-					      * cdir->nentry)) == NULL) {
+    if (cdir->nentry == 0)
+	za->entry = NULL;
+    else if ((za->entry=(struct zip_entry *)malloc(sizeof(*(za->entry))
+						   * cdir->nentry)) == NULL) {
 	set_error(zep, NULL, ZIP_ER_MEMORY);
-	_zip_free(za);
+	zip_discard(za);
 	return NULL;
     }
     for (i=0; i<cdir->nentry; i++)
@@ -275,7 +287,6 @@ _zip_readcdir(FILE *fp, off_t buf_offset, unsigned char *buf, unsigned char *eoc
 	    }
 	}
     }
-
     cd->nentry = i;
     
     return cd;
@@ -312,7 +323,7 @@ _zip_checkcons(FILE *fp, struct zip_cdir *cd, struct zip_error *error)
 	}
 	
 	j = cd->entry[i].offset + cd->entry[i].comp_size
-	    + cd->entry[i].filename_len + LENTRYSIZE;
+	    + strlen(cd->entry[i].settable.filename) + LENTRYSIZE;
 	if (j > max)
 	    max = j;
 	if (max > cd->offset) {
@@ -391,11 +402,9 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
 	   and global headers for the bitflags */
 	|| (h1->bitflags != h2->bitflags)
 #endif
-	|| (h1->comp_method != h2->comp_method)
+	|| (h1->settable.comp_method != h2->settable.comp_method)
 	|| (h1->last_mod != h2->last_mod)
-	|| (h1->filename_len != h2->filename_len)
-	|| !h1->filename || !h2->filename
-	|| strcmp(h1->filename, h2->filename))
+	|| strcmp(h1->settable.filename, h2->settable.filename))
 	return -1;
 
     /* check that CRC and sizes are zero if data descriptor is used */
@@ -420,10 +429,10 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
     }
     
     if ((local1p == local2p)
-	&& ((h1->extrafield_len != h2->extrafield_len)
-	    || (h1->extrafield_len && h2->extrafield
-		&& memcmp(h1->extrafield, h2->extrafield,
-			  h1->extrafield_len))))
+	&& ((h1->settable.extrafield_len != h2->settable.extrafield_len)
+	    || (h1->settable.extrafield_len && h2->settable.extrafield
+		&& memcmp(h1->settable.extrafield, h2->settable.extrafield,
+			  h1->settable.extrafield_len))))
 	return -1;
 
     /* if either is local, nothing more to check */
@@ -435,9 +444,9 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
 	|| (h1->int_attrib != h2->int_attrib)
 	|| (h1->ext_attrib != h2->ext_attrib)
 	|| (h1->offset != h2->offset)
-	|| (h1->comment_len != h2->comment_len)
-	|| (h1->comment_len && h2->comment
-	    && memcmp(h1->comment, h2->comment, h1->comment_len)))
+	|| (h1->settable.comment_len != h2->settable.comment_len)
+	|| (h1->settable.comment_len && h2->settable.comment
+	    && memcmp(h1->settable.comment, h2->settable.comment, h1->settable.comment_len)))
 	return -1;
 
     return 0;
@@ -446,7 +455,7 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
 
 
 static struct zip *
-_zip_allocate_new(const char *fn, int *zep)
+_zip_allocate_new(const char *fn, int flags, int *zep)
 {
     struct zip *za;
     struct zip_error error;
@@ -461,11 +470,12 @@ _zip_allocate_new(const char *fn, int *zep)
     else {
 	za->zn = strdup(fn);
 	if (!za->zn) {
-	    _zip_free(za);
+	    zip_discard(za);
 	    set_error(zep, NULL, ZIP_ER_MEMORY);
 	    return NULL;
 	}
     }
+    za->open_flags = flags;
     return za;
 }
 

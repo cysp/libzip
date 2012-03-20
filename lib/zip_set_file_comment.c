@@ -1,6 +1,6 @@
 /*
   zip_set_file_comment.c -- set comment for file in archive
-  Copyright (C) 2006-2009 Dieter Baron and Thomas Klausner
+  Copyright (C) 2006-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -34,6 +34,7 @@
 
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "zipint.h"
 
@@ -44,6 +45,8 @@ zip_set_file_comment(struct zip *za, zip_uint64_t idx,
 		     const char *comment, int len)
 {
     char *tmpcom;
+    const char *name;
+    enum zip_encoding_type com_enc, enc;
 
     if (idx >= za->nentry
 	|| len < 0 || len > MAXCOMLEN
@@ -57,6 +60,20 @@ zip_set_file_comment(struct zip *za, zip_uint64_t idx,
 	return -1;
     }
 
+    if ((com_enc=_zip_guess_encoding(comment, len)) == ZIP_ENCODING_CP437) {
+	_zip_error_set(&za->error, ZIP_ER_INVAL, 0);
+	return -1;
+    }
+
+    if ((name=zip_get_name(za, idx, ZIP_FL_NAME_RAW)) == NULL)
+	return -1;
+    enc = _zip_guess_encoding(name, strlen(name));
+
+    if (enc == ZIP_ENCODING_CP437 && com_enc == ZIP_ENCODING_UTF8) {
+	_zip_error_set(&za->error, ZIP_ER_ENCMISMATCH, 0);
+	return -1;
+    }
+
     if (len > 0) {
 	if ((tmpcom=(char *)_zip_memdup(comment, len, &za->error)) == NULL)
 	    return -1;
@@ -64,9 +81,11 @@ zip_set_file_comment(struct zip *za, zip_uint64_t idx,
     else
 	tmpcom = NULL;
 
-    free(za->entry[idx].ch_comment);
-    za->entry[idx].ch_comment = tmpcom;
-    za->entry[idx].ch_comment_len = len;
+    if (za->entry[idx].changes.valid & ZIP_DIRENT_COMMENT)
+	free(za->entry[idx].changes.comment);
+    za->entry[idx].changes.comment = tmpcom;
+    za->entry[idx].changes.comment_len = len;
+    za->entry[idx].changes.valid |= ZIP_DIRENT_COMMENT;
     
     return 0;
 }

@@ -3,7 +3,7 @@
 
 /*
   zip.h -- exported declarations.
-  Copyright (C) 1999-2011 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2012 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -39,6 +39,8 @@
 #ifndef ZIP_EXTERN
 #ifdef _WIN32
 #define ZIP_EXTERN __declspec(dllimport)
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#define ZIP_EXTERN __attribute__ ((visibility ("default")))
 #else
 #define ZIP_EXTERN
 #endif
@@ -59,6 +61,7 @@ extern "C" {
 #define ZIP_CREATE           1
 #define ZIP_EXCL             2
 #define ZIP_CHECKCONS        4
+#define ZIP_TRUNCATE         8
 
 
 /* flags for zip_name_locate, zip_fopen, zip_stat, ... */
@@ -70,6 +73,9 @@ extern "C" {
 #define ZIP_FL_RECOMPRESS      16 /* force recompression of data */
 #define ZIP_FL_ENCRYPTED       32 /* read encrypted data
 				     (implies ZIP_FL_COMPRESSED) */
+#define ZIP_FL_NAME_GUESS       0 /* guess name encoding (is default) */
+#define ZIP_FL_NAME_RAW        64 /* get unmodified name */
+#define ZIP_FL_NAME_STRICT    128 /* follow specification strictly */
 
 /* archive global flags flags */
 
@@ -79,6 +85,7 @@ extern "C" {
 
 /* flags for compression and encryption sources */
 
+#define ZIP_CODEC_DECODE	0 /* decompress/decrypt (encode flag not set) */
 #define ZIP_CODEC_ENCODE	1 /* compress/encrypt */
 
 
@@ -112,6 +119,7 @@ extern "C" {
 #define ZIP_ER_RDONLY        25  /* N Read-only archive */ 
 #define ZIP_ER_NOPASSWD      26  /* N No password provided */
 #define ZIP_ER_WRONGPASSWD   27  /* N Wrong password provided */
+#define ZIP_ER_ENCMISMATCH   28  /* N Encoding of name and comment do not match */
 
 /* type of system error value */
 
@@ -208,6 +216,7 @@ typedef zip_int64_t (*zip_source_callback)(void *, void *, zip_uint64_t,
 ZIP_EXTERN zip_int64_t zip_add(struct zip *, const char *, struct zip_source *);
 ZIP_EXTERN zip_int64_t zip_add_dir(struct zip *, const char *);
 ZIP_EXTERN int zip_close(struct zip *);
+ZIP_EXTERN void zip_discard(struct zip *);
 ZIP_EXTERN int zip_delete(struct zip *, zip_uint64_t);
 ZIP_EXTERN void zip_error_clear(struct zip *);
 ZIP_EXTERN void zip_error_get(struct zip *, int *, int *);
@@ -244,6 +253,8 @@ ZIP_EXTERN int zip_set_archive_flag(struct zip *, int, int);
 ZIP_EXTERN int zip_set_default_password(struct zip *, const char *);
 ZIP_EXTERN int zip_set_file_comment(struct zip *, zip_uint64_t,
 				    const char *, int);
+ZIP_EXTERN int zip_set_file_compression(struct zip *, zip_uint64_t,
+					zip_int32_t, zip_uint32_t);
 ZIP_EXTERN int zip_set_file_extra(struct zip *, zip_uint64_t,
 				  const char *, int);
 ZIP_EXTERN struct zip_source *zip_source_buffer(struct zip *, const void *,

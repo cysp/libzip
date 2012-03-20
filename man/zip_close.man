@@ -1,5 +1,5 @@
 .\" zip_close.mdoc \-- close zip archive
-.\" Copyright (C) 2003-2009 Dieter Baron and Thomas Klausner
+.\" Copyright (C) 2003-2012 Dieter Baron and Thomas Klausner
 .\"
 .\" This file is part of libzip, a library to manipulate ZIP archives.
 .\" The authors can be contacted at <libzip@nih.at>
@@ -29,7 +29,7 @@
 .\" OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 .\" IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.TH ZIP_CLOSE 3 "February 15, 2009" NiH
+.TH ZIP_CLOSE 3 "February 13, 2012" NiH
 .SH "NAME"
 zip_close \- close zip archive
 .SH "LIBRARY"
@@ -56,6 +56,9 @@ If
 \fBarchive\fR
 contains no files, the file is completely removed (no empty archive is
 written).
+.PP
+To close a zip file without saving changes, use
+zip_discard(3).
 .SH "RETURN VALUES"
 Upon successful completion 0 is returned.
 Otherwise, \-1 is returned and the error code in
@@ -108,6 +111,7 @@ Additionally, any errors returned by the callback function
 for added or replaced files will be passed back.
 .SH "SEE ALSO"
 libzip(3),
+zip_discard(3),
 zip_error_get(3),
 zip_fdopen(3),
 zip_open(3),
