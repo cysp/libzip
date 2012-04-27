@@ -34,7 +34,10 @@
 
 
 #include <errno.h>
+#include <stdlib.h>
+
 #include <time.h>
+
 #ifndef HAVE_GETOPT
 #include "getopt.h"
 #endif
@@ -54,7 +57,6 @@ main(int argc, char *argv[])
     char buf[100];
     struct zip *z;
     int c, flags, ze;
-    zip_uint64_t count;
     struct zip_stat sb;
     int index;
 
@@ -114,17 +116,17 @@ main(int argc, char *argv[])
 	    char buf[50];
 	    struct tm *tpm;
 	    tpm = gmtime(&sb.mtime);
-	    strftime(buf, sizeof(buf), "%a %b %d %T %Z %Y", tpm);
+	    strftime(buf, sizeof(buf), "%a %b %d %T %Y", tpm);
 	    printf("mtime: `%s'\n", buf);
 	}
 	if (sb.valid & ZIP_STAT_CRC)
 	    printf("crc: `%0x'\n", sb.crc);
 	if (sb.valid & ZIP_STAT_COMP_METHOD)
-	    printf("compression method: `%lld'\n", sb.comp_method);
+	    printf("compression method: `%d'\n", sb.comp_method);
 	if (sb.valid & ZIP_STAT_ENCRYPTION_METHOD)
-	    printf("encryption method: `%lld'\n", sb.encryption_method);
+	    printf("encryption method: `%d'\n", sb.encryption_method);
 	if (sb.valid & ZIP_STAT_FLAGS)
-	    printf("flags: `%lld'\n", sb.flags);
+	    printf("flags: `%ld'\n", (long)sb.flags);
 	printf("\n");
     }
 

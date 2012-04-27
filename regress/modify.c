@@ -170,7 +170,11 @@ main(int argc, char *argv[])
 	    int len;
 	    /* get file comment */
 	    idx = atoi(argv[arg+1]);
-	    if ((comment=zip_get_file_comment(za, idx, &len, 0)) == NULL)
+	    if ((comment=zip_get_file_comment(za, idx, &len, 0)) == NULL) {
+		fprintf(stderr, "can't get comment for `%s': %s\n", zip_get_name(za, idx, 0), zip_strerror(za));
+		err = 1;
+		break;
+	    } else if (len == 0)
 		printf("No comment for `%s'\n", zip_get_name(za, idx, 0));
 	    else
 		printf("File comment for `%s': %.*s\n", zip_get_name(za, idx, 0), len, comment);

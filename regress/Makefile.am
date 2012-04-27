@@ -19,11 +19,14 @@ EXTRA_DIST= \
 	CMakeLists.txt \
 	runtest \
 	${TESTS} \
+	bigzero-zip.zip \
 	broken.zip \
 	encrypt.zip \
 	fileorder.zip \
-	manyfiles.zip \
+	manyfiles-zip.zip \
 	rename_ok.zip \
+	streamed.zip \
+	streamed-zip64.zip \
 	test.zip \
 	test2.zip \
 	test-cp437.zip \
@@ -45,7 +48,8 @@ EXTRA_DIST= \
 	testfile-UTF8.zip \
 	testnottorrent.zip \
 	teststored.zip \
-	testtorrent.tzip
+	testtorrent.tzip \
+	zip64.tzip
 
 TESTS_ENVIRONMENT=	ZIPCMP=${top_builddir}/src/zipcmp ${srcdir}/runtest
 
@@ -81,6 +85,7 @@ TESTS= \
 	open_nosuchfile.test \
 	open_ok.test \
 	open_truncate.test \
+	open_zip64_ok.test \
 	rename_ascii.test \
 	rename_cp437.test \
 	rename_deleted.test \
@@ -101,18 +106,34 @@ TESTS= \
 	stat_index_cp437_raw.test \
 	stat_index_cp437_strict.test \
 	stat_index_fileorder.test \
+	stat_index_streamed.test \
+	stat_index_streamed_zip64.test \
 	stat_index_utf8_guess.test \
 	stat_index_utf8_raw.test \
 	stat_index_utf8_strict.test \
 	stat_index_utf8_unmarked_strict.test \
-	torrent-already.test \
-	torrent-new.test
+	stat_index_zip64.test \
+	torrent-already.test
 
 DISABLED_TESTS= \
 	encoding-ascii.test \
 	encoding-cp437.test \
 	encoding-cp437-all.test \
-	encoding-utf-8.test
+	encoding-utf-8.test \
+	open_incons.test \
+	torrent-new.test
 
 AM_CPPFLAGS=-I${top_srcdir}/lib -I../lib -I${top_srcdir}/src
 LDADD=${top_builddir}/lib/libzip.la
+
+check-am: bigzero.zip manyfiles.zip
+
+bigzero.zip: bigzero-zip.zip
+	${UNZIP} ${srcdir}/bigzero-zip.zip
+	${TOUCH} ${builddir}/bigzero.zip
+
+manyfiles.zip: manyfiles-zip.zip
+	${UNZIP} ${srcdir}/manyfiles-zip.zip
+	${TOUCH} ${builddir}/manyfiles.zip
+
+CLEANFILES=bigzero.zip manyfiles.zip
