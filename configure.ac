@@ -1,5 +1,5 @@
 AC_PREREQ(2.57)
-AC_INIT([libzip],[0.10b],[libzip-discuss@nih.at])
+AC_INIT([libzip],[0.10b],[libzip@nih.at])
 AC_CONFIG_SRCDIR([lib/zip_add.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -68,6 +68,9 @@ AC_CHECK_SIZEOF([short])
 AC_CHECK_SIZEOF([int])
 AC_CHECK_SIZEOF([long])
 AC_CHECK_SIZEOF([long long])
+
+AC_PATH_PROG([TOUCH], [touch])
+AC_PATH_PROG([UNZIP], [unzip])
 
 AC_STRUCT_TIMEZONE
 
