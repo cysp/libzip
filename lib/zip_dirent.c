@@ -367,10 +367,13 @@ _zip_dirent_read(struct zip_dirent *zde, FILE *fp,
     /* convert buffercontents to zip_dirent */
 
     _zip_dirent_init(zde);
-    if (!local)
-	zde->version_madeby = _zip_read2(&cur);
-    else
+    if (!local) {
+	zde->version_madeby = _zip_read1(&cur);
+	zde->os_madeby = _zip_read1(&cur);
+    } else {
 	zde->version_madeby = 0;
+	zde->os_madeby = 0;
+    }
     zde->version_needed = _zip_read2(&cur);
     zde->bitflags = _zip_read2(&cur);
     zde->comp_method = _zip_read2(&cur);
@@ -841,6 +844,20 @@ _zip_get_dirent(struct zip *za, zip_uint64_t idx, zip_flags_t flags, struct zip_
     }
     else
 	return za->entry[idx].changes;
+}
+
+
+
+
+zip_uint8_t
+_zip_read1(const zip_uint8_t **a)
+{
+    zip_uint8_t ret;
+
+    ret = (zip_uint8_t)((*a)[0]);
+    *a += 1;
+
+    return ret;
 }
 
 

@@ -177,7 +177,28 @@ extern "C" {
 #endif
 #define ZIP_EM_UNKNOWN    0xffff  /* unknown algorithm */
 
-
+enum zip_os {
+    ZIP_OS_MSDOS_OS2,
+    ZIP_OS_AMIGA,
+    ZIP_OS_OPENVMS,
+    ZIP_OS_UNIX,
+    ZIP_OS_VMCMS,
+    ZIP_OS_ATARI_ST,
+    ZIP_OS_OS2_HPFS,
+    ZIP_OS_MACINTOSH,
+    ZIP_OS_ZSYSTEM,
+    ZIP_OS_CPM,
+    ZIP_OS_WIN_NTFS,
+    ZIP_OS_MVS,
+    ZIP_OS_VSE,
+    ZIP_OS_ACORN,
+    ZIP_OS_VFAT,
+    ZIP_OS_MVS_ALT,
+    ZIP_OS_BEOS,
+    ZIP_OS_TANDEM,
+    ZIP_OS_OS400,
+    ZIP_OS_OSX,
+};
 
 enum zip_source_cmd {
     ZIP_SOURCE_OPEN,	/* prepare for reading */

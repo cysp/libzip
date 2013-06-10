@@ -309,7 +309,8 @@ struct zip_dirent {
     int local_extra_fields_read;		/*      whether we already read in local header extra fields */
     int cloned;                                 /*      whether this instance is cloned, and thus shares non-changed strings */
 
-    zip_uint16_t version_madeby;		/* (c)  version of creator */
+    zip_uint8_t os_madeby;			/* (c)  os of creator */
+    zip_uint8_t version_madeby;			/* (c)  version of creator */
     zip_uint16_t version_needed;		/* (cl) version needed to extract */
     zip_uint16_t bitflags;			/* (cl) general purpose bit flag */
     zip_int32_t comp_method;			/* (cl) compression method used (uint16 and ZIP_CM_DEFAULT (-1)) */
@@ -487,6 +488,7 @@ int _zip_local_header_read(struct zip *, int);
 void *_zip_memdup(const void *, size_t, struct zip_error *);
 zip_int64_t _zip_name_locate(struct zip *, const char *, zip_flags_t, struct zip_error *);
 struct zip *_zip_new(struct zip_error *);
+zip_uint8_t _zip_read1(const zip_uint8_t **);
 zip_uint16_t _zip_read2(const zip_uint8_t **);
 zip_uint32_t _zip_read4(const zip_uint8_t **);
 zip_uint64_t _zip_read8(const zip_uint8_t **);
